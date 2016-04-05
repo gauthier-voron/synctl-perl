@@ -1,0 +1,262 @@
+#!/usr/bin/perl -l
+
+use strict;
+use warnings;
+
+use Getopt::Long qw(GetOptionsFromArray);
+use Synctl;
+
+
+my $COMMAND_HEADER = "";
+my %COMMANDS = (
+    'help' => [ " help", \&help_main, \&help_usage ],
+    'list' => [ " list", \&list_main, \&list_usage ],
+    'recv' => [ " recv", \&recv_main, \&recv_usage ],
+    'send' => [ " send", \&send_main, \&send_usage ]
+    );
+
+
+sub error
+{
+    my ($message, $ret) = @_;
+    
+    if (!defined($message)) { $message = "undefined error"; }
+    if (!defined($ret)) { $ret = 1; }
+
+    printf(STDERR "%s%s: %s\n", $0, $COMMAND_HEADER, $message);
+    printf(STDERR "Please type '$0 --help' for more informations\n");
+
+    exit ($ret);
+}
+
+sub opterror
+{
+    my ($message) = @_;
+
+    $message =~ s/^Unknown option: (.*)$/$1/;
+    chomp($message);
+
+    error("unknown option : '$message'");
+}
+
+
+sub list_usage
+{
+    return <<"EOF"
+Usage: $0 list <server>
+List the backups made on the specified server by their date of creation. Each
+entry is listed on a single line with the format yyyy-mm-dd-HH-MM-SS.
+EOF
+}
+
+sub list_main
+{
+    my ($server, @err) = @_;
+    my ($backend, $entry);
+
+    $SIG{__WARN__} = \&opterror;
+    GetOptionsFromArray(
+	\@_
+	);
+    $SIG{__WARN__} = undef;
+
+    if (!defined($server)) { error('missing server operand'); }
+    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
+
+    $backend = Synctl::backend($server);
+    if (!defined($backend)) { error("invalid server scheme : '$server'"); }
+
+    foreach $entry ($backend->list()) {
+	printf("%s\n", $entry);
+    }
+
+    return 0;
+}
+
+
+sub send_usage
+{
+    return <<"EOF"
+Usage: $0 send [options] <client> <server>
+Send data from the specified client path to the given server. If some file are
+unchanged since the last sent, their are not send to the server.
+
+Options:
+  -v, --verbose          Print what is done
+  -n, --dry-run          Do not perform any write on the server
+  -i, --include <path>   Include some files to be sent
+  -e, --exclude <path>   Exclude some files to be sent
+EOF
+}
+
+sub send_main
+{
+    my ($verbose, $dryrun) = (0, 0);
+    my (@include, @exclude);
+    my ($client, $server, @err);
+    my $backend;
+
+    $SIG{__WARN__} = \&opterror;
+    GetOptionsFromArray(
+	\@_,
+	'v|verbose' => \$verbose,
+	'n|dry-run' => \$dryrun,
+	'i|include' => \@include,
+	'e|exclude' => \@exclude
+	);
+    $SIG{__WARN__} = undef;
+    ($client, $server, @err) = @_;
+
+    if (!defined($client)) { error('missing client operand'); }
+    if (!defined($server)) { error('missing server operand'); }
+    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
+
+    $backend = Synctl::backend($server);
+    if (!defined($backend)) { error("invalid server scheme : '$server'"); }
+
+    $backend->source($client);
+    $backend->verbose($verbose);
+    $backend->dryrun($dryrun);
+    $backend->include(@include);
+    $backend->exclude(@exclude);
+
+    return $backend->send();
+}
+
+
+sub recv_usage
+{
+    return <<"EOF"
+Usage: $0 recv [options] <server> <client>
+Restore the specified client from the last backup found on the given <server>.
+
+Options:
+  -v, --verbose          Print what is done
+  -n, --dry-run          Do not perform any write on the client
+  -w, --when=<date>      Restore from the last backup before the given date
+  -i, --include <path>   Include some files to be sent
+  -e, --exclude <path>   Exclude some files to be sent
+EOF
+}
+
+sub recv_main
+{
+    my ($verbose, $dryrun) = (0, 1);
+    my (@include, @exclude, $when);
+    my ($server, $client, @err);
+    my ($backend, $ret);
+
+    $SIG{__WARN__} = \&opterror;
+    GetOptionsFromArray(
+	\@_,
+	'v|verbose' => \$verbose,
+	'n|dry-run' => \$dryrun,
+	'w|when=s'  => \$when,
+	'i|include' => \@include,
+	'e|exclude' => \@exclude
+	);
+    $SIG{__WARN__} = undef;
+    ($server, $client, @err) = @_;
+
+    if (!defined($server)) { error('missing server operand'); }
+    if (!defined($client)) { error('missing client operand'); }
+    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
+
+    $backend = Synctl::backend($server);
+    if (!defined($backend)) { error("invalid server scheme : '$server'"); }
+
+    $backend->source($client);
+    $backend->verbose($verbose);
+    $backend->dryrun($dryrun);
+    $backend->include(@include);
+    $backend->exclude(@exclude);
+
+    $ret = $backend->recv($when);
+    if (!defined($ret)) { error('no suitable backup found'); }
+    return $ret;
+}
+
+
+sub help_usage
+{
+    return <<"EOF"
+Usage: $0 help [<command>]
+Print the help message associated with the given command if someone, otherwise,
+act like '$0 --help' has been typed.
+EOF
+}
+
+sub help_main
+{
+    my ($command, @err) = @_;
+    my $comprog;
+
+    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
+    if (!defined($command)) { printf("%s", usage()); return 0; }
+
+    $comprog = $COMMANDS{$command};
+    if (!defined($comprog)) { error("invalid command operand : '$command'"); }
+
+    printf("%s", $comprog->[2]->());
+    return 0;
+}
+
+
+sub usage
+{
+    return <<"EOF"
+Usage: $0 [options] <command> [<args>]
+Make backups from the local computer to either a local or a remote computer in
+an incremental fashion.
+
+Commands:
+  help              Give some help about other commands
+  list              List the available backups on a given server
+  recv              Receive and restore a backup from a server
+  send              Send data to backup on a server
+
+Options:
+  -h, --help        Print this help message and exit.
+  -V, --version     Print the version informations and exit.
+EOF
+}
+
+sub version
+{
+    return <<'EOF'
+synctl 0.1.0
+Gauthier Voron
+gauthier.voron@mnesic.fr
+EOF
+}
+
+sub main
+{
+    my ($command, @args);
+    my ($comprog);
+
+    
+    $SIG{__WARN__} = \&opterror;
+    Getopt::Long::Configure('bundling');
+    Getopt::Long::Configure('require_order');
+    GetOptionsFromArray(
+	\@_,
+	'h|help'    => sub { printf("%s", usage()); exit (0); },
+	'V|version' => sub { printf("%s", version()); exit (0); },
+	);
+    Getopt::Long::Configure('permute');
+    $SIG{__WARN__} = undef;
+    ($command, @args) = @_;
+    
+    if (!defined($command)) { error('missing command operand'); }
+
+    $comprog = $COMMANDS{$command};
+    if (!defined($comprog)) { error("invalid command operand : '$command'"); }
+
+    $COMMAND_HEADER = $comprog->[0];
+    return $comprog->[1]->(@args);
+}
+
+
+exit (main(@ARGV));
+__END__
