@@ -51,7 +51,7 @@ sub list
     if (@err) { confess('unexpected parameters'); }
     
     if (!opendir($dh, $self->_target())) {
-	carp("cannot opend '" . $self->_target() . "' : $!");
+	carp("Cannot open '" . $self->_target() . "' : $!");
 	return undef;
     } else {
 	@entries = readdir($dh);

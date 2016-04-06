@@ -1,0 +1,5 @@
+# This profile saves the /home directory to the /mnt one (which is expected to
+# be mounted on an external device).
+
+server = file:///mnt
+client = /home

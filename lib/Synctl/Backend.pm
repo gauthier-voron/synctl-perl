@@ -7,7 +7,7 @@ use warnings;
 use Carp;
 
 
-sub _source  { shift()->_rw('_source' , @_); }
+sub _client  { shift()->_rw('_client' , @_); }
 sub  verbose { shift()->_rw('_verbose', @_); }
 sub  dryrun  { shift()->_rw('_dryrun' , @_); }
 sub _include { shift()->_rw('_include', @_); }
@@ -23,7 +23,6 @@ sub init
 	return undef;
     }
 
-    $self->source('/');
     $self->verbose(0);
     $self->dryrun(0);
     $self->_include([]);
@@ -33,7 +32,7 @@ sub init
 }
 
 
-sub source
+sub client
 {
     my ($self, $value, @err) = @_;
 
@@ -41,10 +40,10 @@ sub source
     if (defined($value)) {
 	if (ref($value) ne '') { confess('value should be a scalar'); }
 	if (!$value =~ m|^/|) { confess('value should be an absolute path'); }
-	$self->_source($value);
+	$self->_client($value);
     }
 
-    return $self->_source();
+    return $self->_client();
 }
 
 sub target
@@ -138,10 +137,11 @@ sub _compose_rsync_send
     my ($base, @others) = $self->list();
 
     if (@err) { confess("unexpected parameters"); }
+    if (!defined($self->client())) { carp('Undefined client'); return undef; }
     
     if (defined($base)) { push(@command, '--link-dest=../' . $base . '/'); }
 
-    push(@command, $self->source() . '/');
+    push(@command, $self->client() . '/');
     push(@command, $target . '/' . $self->_posix_time() . '/');
 
     return @command;
@@ -155,6 +155,7 @@ sub _compose_rsync_recv
     my ($base);
 
     if (@err) { confess("unexpected parameters"); }
+    if (!defined($self->client())) { carp('Undefined client'); return undef; }
 
     if (!defined($when)) {
 	$base = shift(@entries);
@@ -173,8 +174,9 @@ sub _compose_rsync_recv
 	return ();
     }
 
+    push(@command, '--delete-after');
     push(@command, $target . '/' . $base . '/');
-    push(@command, $self->source() . '/');
+    push(@command, $self->client() . '/');
 
     return @command;
 }

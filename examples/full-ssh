@@ -1,0 +1,13 @@
+# This profile saves the entire computer filesystem to an external ssh server,
+# omitting volatile filesystems
+
+server = ssh://root@my.server.com:/var/backup
+client = /
+
+exclude = /dev
+exclude = /mnt
+exclude = /proc
+exclude = /run
+exclude = /sys
+exclude = /tmp
+exclude = /var/cache

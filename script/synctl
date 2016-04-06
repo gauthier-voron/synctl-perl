@@ -4,8 +4,16 @@ use strict;
 use warnings;
 
 use Getopt::Long qw(GetOptionsFromArray);
-use Synctl;
 
+use Synctl;
+use Synctl::Config;
+
+
+my @CONFIG_PATHS = (
+    $ENV{HOME} . '/.config/synctl',
+    $ENV{HOME} . '/.synctl',
+    '/etc/synctl'
+    );
 
 my $COMMAND_HEADER = "";
 my %COMMANDS = (
@@ -39,32 +47,46 @@ sub opterror
     error("unknown option : '$message'");
 }
 
+sub getconfig
+{
+    my ($path, @paths) = @_;
+
+    if (!@paths) { @paths = @CONFIG_PATHS; }
+    return Synctl::Config->new($path, @paths);
+}
+
 
 sub list_usage
 {
     return <<"EOF"
-Usage: $0 list <server>
-List the backups made on the specified server by their date of creation. Each
-entry is listed on a single line with the format yyyy-mm-dd-HH-MM-SS.
+Usage: $0 list <profile>
+List the backups made on the server specified in the given profile by their
+date of creation. Each entry is listed on a single line with the format
+yyyy-mm-dd-HH-MM-SS.
 EOF
 }
 
 sub list_main
 {
-    my ($server, @err) = @_;
+    my ($profile, @err);
     my ($backend, $entry);
+    my ($config);
 
     $SIG{__WARN__} = \&opterror;
     GetOptionsFromArray(
 	\@_
 	);
     $SIG{__WARN__} = undef;
+    ($profile, @err) = @_;
 
-    if (!defined($server)) { error('missing server operand'); }
+    if (!defined($profile)) { error('missing profile operand'); }
     if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
 
-    $backend = Synctl::backend($server);
-    if (!defined($backend)) { error("invalid server scheme : '$server'"); }
+    $config = getconfig($profile, @CONFIG_PATHS);
+    if (!defined($config)) { return 1; }
+
+    $backend = $config->backend();
+    if (!defined($backend)) { return 1; }
 
     foreach $entry ($backend->list()) {
 	printf("%s\n", $entry);
@@ -77,9 +99,9 @@ sub list_main
 sub send_usage
 {
     return <<"EOF"
-Usage: $0 send [options] <client> <server>
-Send data from the specified client path to the given server. If some file are
-unchanged since the last sent, their are not send to the server.
+Usage: $0 send [options] <profile>
+Send data from the client server, both specified by the given profile. If some
+files are unchanged since the last sent, their are not send to the server.
 
 Options:
   -v, --verbose          Print what is done
@@ -93,28 +115,29 @@ sub send_main
 {
     my ($verbose, $dryrun) = (0, 0);
     my (@include, @exclude);
-    my ($client, $server, @err);
-    my $backend;
+    my ($profile, @err);
+    my ($config, @paths, $backend);
 
     $SIG{__WARN__} = \&opterror;
     GetOptionsFromArray(
 	\@_,
-	'v|verbose' => \$verbose,
-	'n|dry-run' => \$dryrun,
-	'i|include' => \@include,
-	'e|exclude' => \@exclude
+	'v|verbose'   => \$verbose,
+	'n|dry-run'   => \$dryrun,
+	'i|include=s' => \@include,
+	'e|exclude=s' => \@exclude
 	);
     $SIG{__WARN__} = undef;
-    ($client, $server, @err) = @_;
+    ($profile, @err) = @_;
 
-    if (!defined($client)) { error('missing client operand'); }
-    if (!defined($server)) { error('missing server operand'); }
+    if (!defined($profile)) { error('missing profile operand'); }
     if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
 
-    $backend = Synctl::backend($server);
-    if (!defined($backend)) { error("invalid server scheme : '$server'"); }
+    $config = getconfig($profile, @CONFIG_PATHS);
+    if (!defined($config)) { return 1; }
 
-    $backend->source($client);
+    $backend = $config->backend();
+    if (!defined($backend)) { return 1; }
+
     $backend->verbose($verbose);
     $backend->dryrun($dryrun);
     $backend->include(@include);
@@ -127,45 +150,51 @@ sub send_main
 sub recv_usage
 {
     return <<"EOF"
-Usage: $0 recv [options] <server> <client>
-Restore the specified client from the last backup found on the given <server>.
+Usage: $0 recv [options] <profile>
+Restore the client from the last backup found on the server. Both the client
+and the server are specified by the given profile. The client path may be
+overriden by option to restore the backup at a different location.
 
 Options:
   -v, --verbose          Print what is done
   -n, --dry-run          Do not perform any write on the client
   -w, --when=<date>      Restore from the last backup before the given date
-  -i, --include <path>   Include some files to be sent
-  -e, --exclude <path>   Exclude some files to be sent
+  -i, --include <path>   Include some files to be received
+  -e, --exclude <path>   Exclude some files to be received
+  -c, --client <path>    Override the client path
 EOF
 }
 
 sub recv_main
 {
-    my ($verbose, $dryrun) = (0, 1);
-    my (@include, @exclude, $when);
-    my ($server, $client, @err);
-    my ($backend, $ret);
+    my ($verbose, $dryrun) = (0, 0);
+    my (@include, @exclude, $when, $client);
+    my ($profile, @err);
+    my ($config, @paths, $backend, $ret);
 
     $SIG{__WARN__} = \&opterror;
     GetOptionsFromArray(
 	\@_,
-	'v|verbose' => \$verbose,
-	'n|dry-run' => \$dryrun,
-	'w|when=s'  => \$when,
-	'i|include' => \@include,
-	'e|exclude' => \@exclude
+	'c|client=s'  => \$client,
+	'v|verbose'   => \$verbose,
+	'n|dry-run'   => \$dryrun,
+	'w|when=s'    => \$when,
+	'i|include=s' => \@include,
+	'e|exclude=s' => \@exclude
 	);
     $SIG{__WARN__} = undef;
-    ($server, $client, @err) = @_;
+    ($profile, @err) = @_;
 
-    if (!defined($server)) { error('missing server operand'); }
-    if (!defined($client)) { error('missing client operand'); }
+    if (!defined($profile)) { error('missing profile operand'); }
     if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
 
-    $backend = Synctl::backend($server);
-    if (!defined($backend)) { error("invalid server scheme : '$server'"); }
+    $config = getconfig($profile, @CONFIG_PATHS);
+    if (!defined($config)) { return 1; }
 
-    $backend->source($client);
+    $backend = $config->backend();
+    if (!defined($backend)) { return 1; }
+
+    if (defined($client)) { $backend->client($client); }
     $backend->verbose($verbose);
     $backend->dryrun($dryrun);
     $backend->include(@include);
@@ -207,7 +236,8 @@ sub usage
     return <<"EOF"
 Usage: $0 [options] <command> [<args>]
 Make backups from the local computer to either a local or a remote computer in
-an incremental fashion.
+an incremental fashion. The way a backup is made is written in a profile which
+needs to be specified for most of commands.
 
 Commands:
   help              Give some help about other commands
@@ -216,8 +246,9 @@ Commands:
   send              Send data to backup on a server
 
 Options:
-  -h, --help        Print this help message and exit.
-  -V, --version     Print the version informations and exit.
+  -h, --help                  Print this help message and exit.
+  -V, --version               Print the version informations and exit.
+  -C, --paths <d>[:<d>...]    Change the directory list where to find profiles
 EOF
 }
 
@@ -233,7 +264,7 @@ EOF
 sub main
 {
     my ($command, @args);
-    my ($comprog);
+    my ($comprog, @paths);
 
     
     $SIG{__WARN__} = \&opterror;
@@ -243,6 +274,7 @@ sub main
 	\@_,
 	'h|help'    => sub { printf("%s", usage()); exit (0); },
 	'V|version' => sub { printf("%s", version()); exit (0); },
+	'C|path=s'  => \@paths
 	);
     Getopt::Long::Configure('permute');
     $SIG{__WARN__} = undef;
@@ -253,6 +285,7 @@ sub main
     $comprog = $COMMANDS{$command};
     if (!defined($comprog)) { error("invalid command operand : '$command'"); }
 
+    if (@paths) { @CONFIG_PATHS = map { split(':', $_) } @paths; }
     $COMMAND_HEADER = $comprog->[0];
     return $comprog->[1]->(@args);
 }
