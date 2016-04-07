@@ -116,7 +116,7 @@ sub _posix_time
 sub _compose_rsync
 {
     my ($self, @err) = @_;
-    my @command = ('rsync', '-aAHXc');
+    my @command = ('rsync', '-aAHXc', '-M--fake-super');
     my ($entry);
 
     if (@err) { confess("unexpected parameters"); }

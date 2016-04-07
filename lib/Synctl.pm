@@ -24,8 +24,12 @@ sub backend
     if (@err) { confess('unexpected parameters'); }
     if (ref($target) ne '') { confess('target should be a scalar'); }
 
+
     if ($target =~ m|^(.*?)://|) {
 	$type = $1;
+    } elsif ($target =~ m|^(.*)@(.*):(.*)$|) {
+	$type = 'ssh';
+	$target = 'ssh://' . $target;
     } else {
 	$type = '';
     }
