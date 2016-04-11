@@ -1,0 +1,15 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+LICENSE
+t/Synctl.t
+script/synctl
+lib/Synctl.pm
+lib/Synctl/Backend.pm
+lib/Synctl/Config.pm
+lib/Synctl/FileBackend.pm
+lib/Synctl/Object.pm
+lib/Synctl/SshBackend.pm
+examples/full-ssh
+examples/home-local

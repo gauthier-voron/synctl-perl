@@ -1,0 +1,34 @@
+Synctl version 0.1.0
+====================
+
+The Synctl module is an rsync based incremental backup tool. The way it make
+backups is controlled by configuration files (profiles), allowing to backup
+different parts of your computer with different parameters.
+
+This module is provided with the synctl executable which you can use to list,
+make and restore backups from the command line.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+  rsync        (only for client)
+  openssh
+  
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2016 by Gauthier Voron
+
+This library is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.

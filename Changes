@@ -1,0 +1,9 @@
+Revision history for Perl extension Synctl.
+
+0.1.0  2016-04-08
+       - Only backup related functionalities :
+         - list the backups of the server
+         - send a new backup to the server
+         - restore from a previous backup of the server
+       - Support for local (file://) and ssh (ssh://) servers
+       - Support for simple configuration files

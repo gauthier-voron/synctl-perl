@@ -11,3 +11,5 @@ exclude = /run
 exclude = /sys
 exclude = /tmp
 exclude = /var/cache
+exclude = /var/run
+exclude = .cache
