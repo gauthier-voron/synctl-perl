@@ -4,12 +4,13 @@
 server = ssh://root@my.server.com:/var/backup
 client = /
 
-exclude = /dev
-exclude = /mnt
-exclude = /proc
-exclude = /run
-exclude = /sys
-exclude = /tmp
-exclude = /var/cache
-exclude = /var/run
-exclude = .cache
+exclude = /dev/*
+exclude = /mnt/*
+exclude = /proc/*
+exclude = /run/*
+exclude = /sys/*
+exclude = /tmp/*
+exclude = /var/cache/*
+exclude = /var/run/*
+exclude = /var/tmp/*
+exclude = .cache/*
