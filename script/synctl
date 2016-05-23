@@ -23,6 +23,9 @@ my %COMMANDS = (
     'send' => [ " send", \&send_main, \&send_usage ]
     );
 
+my $PROGRAM = $0;
+$PROGRAM =~ s|^.*/||;
+
 
 sub error
 {
@@ -31,8 +34,8 @@ sub error
     if (!defined($message)) { $message = "undefined error"; }
     if (!defined($ret)) { $ret = 1; }
 
-    printf(STDERR "%s%s: %s\n", $0, $COMMAND_HEADER, $message);
-    printf(STDERR "Please type '$0 --help' for more informations\n");
+    printf(STDERR "%s%s: %s\n", $PROGRAM, $COMMAND_HEADER, $message);
+    printf(STDERR "Please type '$PROGRAM --help' for more informations\n");
 
     exit ($ret);
 }
@@ -59,7 +62,7 @@ sub getconfig
 sub list_usage
 {
     return <<"EOF"
-Usage: $0 list <profile>
+Usage: $PROGRAM list <profile>
 List the backups made on the server specified in the given profile by their
 date of creation. Each entry is listed on a single line with the format
 yyyy-mm-dd-HH-MM-SS.
@@ -99,7 +102,7 @@ sub list_main
 sub send_usage
 {
     return <<"EOF"
-Usage: $0 send [options] <profile>
+Usage: $PROGRAM send [options] <profile>
 Send data from the client server, both specified by the given profile. If some
 files are unchanged since the last sent, their are not send to the server.
 
@@ -150,7 +153,7 @@ sub send_main
 sub recv_usage
 {
     return <<"EOF"
-Usage: $0 recv [options] <profile>
+Usage: $PROGRAM recv [options] <profile>
 Restore the client from the last backup found on the server. Both the client
 and the server are specified by the given profile. The client path may be
 overriden by option to restore the backup at a different location.
@@ -209,9 +212,9 @@ sub recv_main
 sub help_usage
 {
     return <<"EOF"
-Usage: $0 help [<command>]
+Usage: $PROGRAM help [<command>]
 Print the help message associated with the given command if someone, otherwise,
-act like '$0 --help' has been typed.
+act like '$PROGRAM --help' has been typed.
 EOF
 }
 
@@ -234,7 +237,7 @@ sub help_main
 sub usage
 {
     return <<"EOF"
-Usage: $0 [options] <command> [<args>]
+Usage: $PROGRAM [options] <command> [<args>]
 Make backups from the local computer to either a local or a remote computer in
 an incremental fashion. The way a backup is made is written in a profile which
 needs to be specified for most of commands.

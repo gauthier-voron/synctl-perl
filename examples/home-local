@@ -3,3 +3,5 @@
 
 server = file:///mnt
 client = /home
+
+exclude = /.cache/*
