@@ -198,7 +198,7 @@ sub recv
 
     @command = $self->_compose_rsync_recv($target, $when);
     if (!@command) { return undef; }
-    push(@command, '-M--fake-super');
+    if (!$self->dryrun()) { push(@command, '-M--fake-super'); }
     push(@command, '-z');
 
     if ($self->_open()) {

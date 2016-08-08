@@ -116,13 +116,14 @@ sub _posix_time
 sub _compose_rsync
 {
     my ($self, @err) = @_;
-    my @command = ('rsync', '-aAHXc');
+    my @command = ('rsync', '-aAHc');
     my ($entry);
 
     if (@err) { confess("unexpected parameters"); }
     
     if ($self->verbose()) { push(@command, '-v'); }
     if ($self->dryrun())  { push(@command, '-n'); }
+    else { push(@command, '-X'); }
 
     foreach $entry ($self->include()) { push(@command, "--include=$entry" ); }
     foreach $entry ($self->exclude()) { push(@command, "--exclude=$entry" ); }
