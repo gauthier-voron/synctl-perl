@@ -4,6 +4,7 @@ MANIFEST
 README
 LICENSE
 t/Synctl.t
+t/File.pm
 script/synctl
 lib/Synctl.pm
 lib/Synctl/Backend.pm
