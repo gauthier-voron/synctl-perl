@@ -22,6 +22,7 @@ use constant {
 
     IFCREAT => 'Create file',        # path of the file created
     IFDELET => 'Delete file',        # path of the file deleted
+    ILCREAT => 'Create link',        # path of the source, path of the dest
     IRGET   => 'Create reference',   # hash of the reference
     IRPUT   => 'Delete reference',   # hash of the reference
     ICSEND  => 'Send bytes',         # amount of sent bytes
@@ -33,6 +34,7 @@ use constant {
     IFSEND  => 'Send file',          # path of the file
     IFRECV  => 'Receive file',       # path of the file
     IREGEX  => 'Build regex',        # include/exclude, from, to
+    INODMAP => 'Nodemap update',     # client/server, key, value
 };
 
 
@@ -42,9 +44,9 @@ our @ISA = qw(Exporter);
 
 our %EXPORT_TAGS = (
     'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG) ],
-    'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET IRGET
-                      IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
-                      IFSEND IFRECV IREGEX) ],
+    'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
+                      IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
+                      IFSEND IFRECV IREGEX INODMAP) ],
     'all'     => [ qw(Configure backend init controler send list recv serve) ]
     );
 

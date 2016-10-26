@@ -218,7 +218,7 @@ sub __client_properties
 {
     my ($self, $name) = @_;
     my $cpath = $self->client_path();
-    my ($path, $mode, $user, $group, $mtime, $inode);
+    my ($path, $dev, $inode, $mode, $user, $group, $mtime);
 
     if ($cpath eq '/') {
 	$path = $name;
@@ -228,13 +228,14 @@ sub __client_properties
 	$path = $cpath . $name;
     }
 
-    ($mode, $user, $group, $mtime, $inode) = (lstat($path))[2, 4, 5, 9, 1];
+    ($dev, $inode, $mode, $user, $group, $mtime) =
+	(lstat($path))[0, 1, 2, 4, 5, 9];
 
     if (!defined($mode)) {
 	return { PATH => $path, MODE => 0 };
     } else {
 	return { PATH => $path, MODE => $mode, USER => $user, GROUP => $group,
-		 MTIME => $mtime, INODE => $inode };
+		 MTIME => $mtime, INODE => $dev . ':' . $inode };
     }
 }
 
@@ -311,11 +312,71 @@ sub __receive_properties
     return $diff;
 }
 
+sub __resolve_node
+{
+    my ($self, $name, $sprops, $cprops, $nodemap) = @_;
+    my ($cnode, $cpath, $mklink, $rmlink);
+
+    if (!defined($sprops->{INODE})) {
+	return 0;
+    }
+
+    $cnode = $nodemap->{server}->{$sprops->{INODE}};
+    if (defined($cnode)) {
+	$cpath = $nodemap->{client}->{$cnode};
+	$mklink = $cpath;
+    }
+
+    if ($cprops->{MODE} == 0) {
+	if ($mklink) {
+	    notify(INFO, ILCREAT, $cpath, $cprops->{PATH});
+	    if (!link($cpath, $cprops->{PATH})) {
+		return throw(ESYS, $!);
+	    }
+	    return 1;
+	}
+
+	return 0;
+    }
+
+    if (defined($nodemap->{client}->{$cprops->{INODE}})) {
+	if (defined($cnode) && $cnode eq $cprops->{INODE}) {
+	    return 0;
+	} else {
+	    $rmlink = 1;
+	}
+    } elsif (defined($cnode) && $cnode eq $cprops->{INODE}) {
+	$mklink = 1;
+    }
+
+    if ($rmlink || $mklink) {
+	notify(DEBUG, IFDELET, $cprops->{PATH});
+	$self->__delete($cprops->{PATH});
+    }
+
+    if ($mklink) {
+	notify(INFO, ILCREAT, $cpath, $cprops->{PATH});
+	if (!link($cpath, $cprops->{PATH})) {
+	    return throw(ESYS, $!);
+	}
+	return 1;
+    }
+
+    if ($rmlink) {
+	%$cprops = %{$self->__client_properties($name)};
+    }
+    return 0;
+}
+
 sub __receive_link
 {
-    my ($self, $name, $sprops, $cprops) = @_;
+    my ($self, $name, $sprops, $cprops, $nodemap) = @_;
     my ($content, $shash, $chash, $ret);
     my $diff = 0;
+
+    if ($self->__resolve_node($name, $sprops, $cprops, $nodemap)) {
+	return 1;
+    }
 
     if ($cprops->{MODE} == 0) {
 	$chash = 0;
@@ -354,9 +415,13 @@ sub __receive_link
 
 sub __receive_file
 {
-    my ($self, $name, $sprops, $cprops) = @_;
-    my ($fh, $mode, $flag, $ctx, $shash, $chash, $ret);
+    my ($self, $name, $sprops, $cprops, $nodemap) = @_;
+    my ($fh, $mode, $flag, $ctx, $shash, $chash, $ret, $dev, $inode);
     my $diff = 0;
+
+    if ($self->__resolve_node($name, $sprops, $cprops, $nodemap)) {
+	return 1;
+    }
 
     if ($cprops->{MODE} == 0) {
 	$chash = 0;
@@ -398,6 +463,18 @@ sub __receive_file
 	$diff = 1;
     }
 
+    if (!defined($cprops->{INODE})) {
+	($dev, $inode) = (lstat($cprops->{PATH}))[0, 1];
+	$cprops->{INODE} = $dev . ':' . $inode;
+    }
+
+    notify(DEBUG, INODMAP, 'client', $cprops->{INODE}, $cprops->{PATH});
+    $nodemap->{client}->{$cprops->{INODE}} = $cprops->{PATH};
+    if (defined($sprops->{INODE})) {
+	notify(DEBUG, INODMAP, 'server', $sprops->{INODE}, $cprops->{INODE});
+	$nodemap->{server}->{$sprops->{INODE}} = $cprops->{INODE};
+    }
+
     if ($self->__receive_properties($sprops, $cprops)) {
 	$diff = 1;
     }
@@ -407,7 +484,7 @@ sub __receive_file
 
 sub __receive_directory
 {
-    my ($self, $name, $sprops, $cprops) = @_;
+    my ($self, $name, $sprops, $cprops, $nodemap) = @_;
     my ($dh, @sentries, @centries, $entry, $cmp, $ret, $mode);
     my $sep = ($name eq '/') ? '' : '/';
     my $diff = 0;
@@ -446,7 +523,7 @@ sub __receive_directory
 	$cmp = $sentries[0] cmp $centries[0];
 	
 	if ($cmp <= 0) {
-	    $ret += $self->__receive($name . $sep . $sentries[0]);
+	    $ret += $self->__receive($name . $sep . $sentries[0], $nodemap);
 	    shift(@sentries);
 	}
 
@@ -472,7 +549,7 @@ sub __receive_directory
 
 sub __receive
 {
-    my ($self, $name) = @_;
+    my ($self, $name, $nodemap) = @_;
     my $sprops = $self->__server_properties($name);
     my $cprops = $self->__client_properties($name);
     my $filter = $self->filter();
@@ -490,6 +567,7 @@ sub __receive
     }
 
     if (!defined($sprops)) {
+	notify(INFO, IFDELET, $cprops->{PATH});
 	$self->__delete($cprops->{PATH});
 	return 1;
     }
@@ -503,12 +581,13 @@ sub __receive
     }
 
     if ($stype != $ctype && $ctype != 0) {
+	notify(INFO, IFDELET, $cprops->{PATH});
 	$self->__delete($cprops->{PATH});
 	$cprops->{MODE} = 0;
     }
 
     notify(INFO, IFRECV, $name);
-    return $action->($self, $name, $sprops, $cprops);
+    return $action->($self, $name, $sprops, $cprops, $nodemap);
 }
 
 
@@ -521,7 +600,7 @@ sub receive
 	return throw(ESYNTAX, shift(@err));
     }
     
-    $done = $self->__receive('/');
+    $done = $self->__receive('/', {});
     $err = 0;
     return ($done, $err);
 }

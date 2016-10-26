@@ -1,264 +1,720 @@
 #!/usr/bin/perl -l
 
+use lib qw(/home/gauthier/Projets/perl-synctl/lib);
 use strict;
 use warnings;
 
 use Getopt::Long qw(GetOptionsFromArray);
 
-use Synctl;
-use Synctl::Config;
+use Synctl qw(:verbose);
+use Synctl::Profile;
 
 
-my @CONFIG_PATHS = (
-    $ENV{HOME} . '/.config/synctl',
-    $ENV{HOME} . '/.synctl',
-    '/etc/synctl'
+my %MAINS = (
+    'help' => \&help_main,
+    'init' => \&init_main,
+    'list' => \&list_main,
+    'send' => \&send_main,
+    'recv' => \&recv_main,
+    'serve' => \&serve_main
     );
 
-my $COMMAND_HEADER = "";
-my %COMMANDS = (
-    'help' => [ " help", \&help_main, \&help_usage ],
-    'list' => [ " list", \&list_main, \&list_usage ],
-    'recv' => [ " recv", \&recv_main, \&recv_usage ],
-    'send' => [ " send", \&send_main, \&send_usage ]
+my %USAGES = (
+    'help' => \&help_usage,
+    'init' => \&init_usage,
+    'list' => \&list_usage,
+    'send' => \&send_usage,
+    'recv' => \&recv_usage,
+    'serve' => \&serve_usage
     );
 
-my $PROGRAM = $0;
-$PROGRAM =~ s|^.*/||;
+my %INFOS = (
+    'help' => 'obtain some help for a command',
+    'init' => 'initialize a local server',
+    'list' => 'list the snapshots of a given server',
+    'send' => 'send files to create a new snapshot',
+    'recv' => 'receive files from a given snapshot',
+    'serve' => 'serve ssh forwared requests'
+    );
+
+
+my $PROGRAM = 'synctl';
+my $COMMAND = '';
+
+my @PROFILE_PATH = qw(. ~/.config/synctl /etc/synctl);
+
+my $VERBOSE = WARN;
 
 
 sub error
 {
-    my ($message, $ret) = @_;
-    
-    if (!defined($message)) { $message = "undefined error"; }
-    if (!defined($ret)) { $ret = 1; }
+    my ($message, $exitcode) = @_;
 
-    printf(STDERR "%s%s: %s\n", $PROGRAM, $COMMAND_HEADER, $message);
-    printf(STDERR "Please type '$PROGRAM --help' for more informations\n");
+    if (!defined($message)) {
+	$message = 'undefined error';
+    }
+    if (!defined($exitcode)) {
+	$exitcode = 255;
+    }
 
-    exit ($ret);
+    printf(STDERR "%s%s: %s\n", $PROGRAM, $COMMAND, $message);
+    printf(STDERR "Please type '%s --help' for more information\n", $PROGRAM);
+
+    exit ($exitcode);
 }
 
-sub opterror
+sub opterr
 {
     my ($message) = @_;
 
-    $message =~ s/^Unknown option: (.*)$/$1/;
-    chomp($message);
-
-    error("unknown option : '$message'");
-}
-
-sub getconfig
-{
-    my ($path, @paths) = @_;
-
-    if (!@paths) { @paths = @CONFIG_PATHS; }
-    return Synctl::Config->new($path, @paths);
-}
-
-
-sub list_usage
-{
-    return <<"EOF"
-Usage: $PROGRAM list <profile>
-List the backups made on the server specified in the given profile by their
-date of creation. Each entry is listed on a single line with the format
-yyyy-mm-dd-HH-MM-SS.
-EOF
-}
-
-sub list_main
-{
-    my ($profile, @err);
-    my ($backend, $entry);
-    my ($config);
-
-    $SIG{__WARN__} = \&opterror;
-    GetOptionsFromArray(
-	\@_
-	);
-    $SIG{__WARN__} = undef;
-    ($profile, @err) = @_;
-
-    if (!defined($profile)) { error('missing profile operand'); }
-    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
-
-    $config = getconfig($profile, @CONFIG_PATHS);
-    if (!defined($config)) { return 1; }
-
-    $backend = $config->backend();
-    if (!defined($backend)) { return 1; }
-
-    foreach $entry ($backend->list()) {
-	printf("%s\n", $entry);
+    if ($message =~ /^Unknown option: (.*)$/) {
+	error("unknown option '$1'");
     }
 
-    return 0;
+    printf(STDERR "%s", $message);
+}
+
+sub syncerr
+{
+    my ($code, $message) = @_;
+
+    $code = lc($code);
+    error("$code '$message'");
 }
 
 
-sub send_usage
+sub find_profile
 {
-    return <<"EOF"
-Usage: $PROGRAM send [options] <profile>
-Send data from the client server, both specified by the given profile. If some
-files are unchanged since the last sent, their are not send to the server.
+    my ($profile_name) = @_;
+    my ($directory, $profile_path);
 
-Options:
-  -v, --verbose          Print what is done
-  -n, --dry-run          Do not perform any write on the server
-  -i, --include <path>   Include some files to be sent
-  -e, --exclude <path>   Exclude some files to be sent
-EOF
+    foreach $directory (@PROFILE_PATH) {
+	$profile_path = $directory . '/' . $profile_name;
+	if (-e $profile_path && -r $profile_path) {
+	    return $profile_path;
+	}
+    }
+
+    return undef;
 }
 
-sub send_main
+sub make_profile
 {
-    my ($verbose, $dryrun) = (0, 0);
-    my (@include, @exclude);
-    my ($profile, @err);
-    my ($config, @paths, $backend);
+    my ($profile_name, @profile_paths) = @_;
+    my $profile = Synctl::Profile->new();
+    my $profile_path;
+    my $fh;
 
-    $SIG{__WARN__} = \&opterror;
-    GetOptionsFromArray(
-	\@_,
-	'v|verbose'   => \$verbose,
-	'n|dry-run'   => \$dryrun,
-	'i|include=s' => \@include,
-	'e|exclude=s' => \@exclude
-	);
-    $SIG{__WARN__} = undef;
-    ($profile, @err) = @_;
+    if (@profile_paths) {
+	@PROFILE_PATH = @profile_paths;
+    }
 
-    if (!defined($profile)) { error('missing profile operand'); }
-    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
+    if (defined($profile_name)) {
+	$profile_path = find_profile($profile_name);
+	if (!defined($profile_path)) {
+	    error("cannot find profile '$profile_name'");
+	} else {
+	    notify(DEBUG, ICONFIG, 'profile', $profile_path);
+	}
 
-    $config = getconfig($profile, @CONFIG_PATHS);
-    if (!defined($config)) { return 1; }
+	if (!open($fh, '<', $profile_path)) {
+	    error("cannot open profile '$profile_path' : $!");
+	} else {
+	    $profile->read($fh);
+	    close($fh);
+	}
+    }
 
-    $backend = $config->backend();
-    if (!defined($backend)) { return 1; }
-
-    $backend->verbose($verbose);
-    $backend->dryrun($dryrun);
-    $backend->include(@include);
-    $backend->exclude(@exclude);
-
-    return $backend->send();
-}
-
-
-sub recv_usage
-{
-    return <<"EOF"
-Usage: $PROGRAM recv [options] <profile>
-Restore the client from the last backup found on the server. Both the client
-and the server are specified by the given profile. The client path may be
-overriden by option to restore the backup at a different location.
-
-Options:
-  -v, --verbose          Print what is done
-  -n, --dry-run          Do not perform any write on the client
-  -w, --when=<date>      Restore from the last backup before the given date
-  -i, --include <path>   Include some files to be received
-  -e, --exclude <path>   Exclude some files to be received
-  -c, --client <path>    Override the client path
-EOF
-}
-
-sub recv_main
-{
-    my ($verbose, $dryrun) = (0, 0);
-    my (@include, @exclude, $when, $client);
-    my ($profile, @err);
-    my ($config, @paths, $backend, $ret);
-
-    $SIG{__WARN__} = \&opterror;
-    GetOptionsFromArray(
-	\@_,
-	'c|client=s'  => \$client,
-	'v|verbose'   => \$verbose,
-	'n|dry-run'   => \$dryrun,
-	'w|when=s'    => \$when,
-	'i|include=s' => \@include,
-	'e|exclude=s' => \@exclude
-	);
-    $SIG{__WARN__} = undef;
-    ($profile, @err) = @_;
-
-    if (!defined($profile)) { error('missing profile operand'); }
-    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
-
-    $config = getconfig($profile, @CONFIG_PATHS);
-    if (!defined($config)) { return 1; }
-
-    $backend = $config->backend();
-    if (!defined($backend)) { return 1; }
-
-    if (defined($client)) { $backend->client($client); }
-    $backend->verbose($verbose);
-    $backend->dryrun($dryrun);
-    $backend->include(@include);
-    $backend->exclude(@exclude);
-
-    $ret = $backend->recv($when);
-    if (!defined($ret)) { error('no suitable backup found'); }
-    return $ret;
+    return $profile;
 }
 
 
 sub help_usage
 {
-    return <<"EOF"
-Usage: $PROGRAM help [<command>]
-Print the help message associated with the given command if someone, otherwise,
-act like '$PROGRAM --help' has been typed.
+    return <<"EOF";
+Usage: $PROGRAM help [ --list | <command> ]
+
+Print a help message for the given command indicating the possibles syntaxes
+and their effects. If no command is given, print the general help message of
+the program. If '--list' is specified instead of a command name, then print
+exclusive list of the possible commands.
 EOF
+}
+
+sub help_list
+{
+    my @commands = sort { $a cmp $b } keys(%INFOS);
+    my ($length, $command);
+
+    $length = 0;
+    foreach $command (@commands) {
+	if (length($command) > $length) {
+	    $length = length($command);
+	}
+    }
+
+    return "List of the possible commands of $PROGRAM:\n"
+	. join("", map { sprintf('  %-'. $length ."s  %s\n", $_,$INFOS{$_}) }
+	       @commands);
 }
 
 sub help_main
 {
-    my ($command, @err) = @_;
-    my $comprog;
+    my ($command, @err);
+    my ($usage);
 
-    if (@err) { error("unexpected operand : '" . shift(@err) . "'"); }
-    if (!defined($command)) { printf("%s", usage()); return 0; }
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'l|list'   => sub { printf("%s", help_list()); exit (0); },
+	);
+    $SIG{__WARN__} = undef;
 
-    $comprog = $COMMANDS{$command};
-    if (!defined($comprog)) { error("invalid command operand : '$command'"); }
+    ($command, @err) = @_;
 
-    printf("%s", $comprog->[2]->());
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    if (defined($command)) {
+	$usage = $USAGES{$command};
+	if (!defined($usage)) {
+	    error("unknown command '$usage'");
+	}
+
+	printf("%s", $usage->());
+	exit (0);
+    }
+
+    printf("%s", usage());
+    exit (0);
+}
+
+
+sub init_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM init [ -f | --force ] [ <path> ]
+Initialize a local server at the specified path, or on the current directory
+if no path is specified. The local server can then be used localy or remotely.
+
+Options:
+  --force      If path is an existing file, remove it before to proceed.
+EOF
+}
+
+sub init_main
+{
+    my ($path, @err);
+    my ($force) = (0);
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'f|force'     => \$force,
+	'v|verbose:+' => \$VERBOSE
+	);
+    $SIG{__WARN__} = undef;
+
+    Synctl::Configure(VERBOSE => $VERBOSE);
+
+    ($path, @err) = @_;
+    if (!defined($path)) {
+	error('missing operand path');
+    } elsif (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    if ($force && (-e $path)) {
+	system('rm', '-rf', $path);
+	notify(INFO, IFDELET, $path);
+    }
+
+    Synctl::init($path);
     return 0;
+}
+
+
+sub list_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM list [--older=<date>] [--newer=<date>] [--date=<regex>]
+       [--invert] [--contain=<path>] [--reverse] [--format=<format>]
+       [--directory=<path>[:<path>...]] [--server=<location> | <profile>]
+
+Print the snapshots of the specified server. The server is specified either by
+a profile containing the location of the server or with the '--server' option.
+If specified by profile, the search path for the profile file can be changed
+with the '--directory' option.
+
+Several filters can be applied to the filter list. The options '--older',
+'--newer' and '--date' filter the snapshots by their creation date while the
+'--contain' option allow to select only snapshots containing specific files.
+These filter options can be specified many times.
+
+The snapshots are listed by chronological order. This can be modified with the
+'--reverse' option to list snapshots newest first. The '--format' option allows
+to choose precisely what to print.
+
+Options:
+  -C <path>, --directory=<path>         Change the search path for the profile
+                                        file. This options may be specified
+                                        many times to indicate many search
+                                        directories.
+
+  -s <location>, --server=<location>    Indicate the location of the server to
+                                        list. A location has the form
+                                        '(protocol)://(path)(path-extensions)'.
+                                        If the protocol is 'file', it may be
+                                        omitted.
+
+
+  -o <date>, --older=<date>             List only snapshots older than the
+                                        specified date. A date is a prefix of
+                                        a string like 'YYYY-mm-dd-HH-MM-SS'.
+
+  -n <date>, --newer=<date>             List only snapshots older than the
+                                        specified date. A date is a prefix of
+                                        a string like 'YYYY-mm-dd-HH-MM-SS'.
+
+  -d <regex>, --date=<regex>            List only snapshots having a creation
+                                        date matching the given perl-regex.
+
+  -i, --invert                          Change the behavior of the '--date'
+                                        option to list only the snapshots
+                                        having a creation date *not* matching
+                                        the perl-regex.
+
+  -c <path>, --contain=<path>           List only the snapshots containing the
+                                        specified file relative to the snapshot
+                                        root.
+
+
+  -r, --reverse                         Print the snapshots the newest first.
+
+  -f <format>, --format=<format>        Specify the print format, which is a
+                                        string where the following replacements
+                                        are made :
+
+    %Y    Year of the snapshot creation (0000 .. 1970 .. )
+    %m    Month of the snapshot creation (01 .. 12)
+    %d    Day of month of the snapshot creation (01 .. 31)
+    %H    Hour of the snapshot creation (00 .. 23)
+    %M    Minute of the snapshot creation (00 .. 59)
+    %S    Second of the snapshot creation (00 .. 59)
+    %u    Unique identifier of the snapshot (32 x 0..f)
+EOF
+}
+
+sub list_main
+{
+    my ($profile_name, @err);
+    my (@profile_paths, $older, $newer, $date, $invert, @contains, $reverse);
+    my ($server, $format);
+    my ($profile, $ndate, $path, $text, $controler, @snapshots, $snapshot);
+    my ($Y, $m, $d, $H, $M, $S, $u);
+
+    $format = "%Y-%m-%d-%H-%M-%S-%u";
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'C|directory=s' => \@profile_paths,
+	'o|older=s'     => \$older,
+	'n|newer=s'     => \$newer,
+	'd|date=s'      => \$date,
+	'i|invert'      => \$invert,
+	'c|contain=s'   => \@contains,
+	'r|reverse'     => \$reverse,
+	'f|format=s'    => \$format,
+	's|server=s'    => \$server
+	);
+    $SIG{__WARN__} = undef;
+
+    ($profile_name, @err) = @_;
+
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    $profile = make_profile($profile_name, @profile_paths);
+
+    if (!defined($server)) { $server = $profile->server(); }
+    if (!defined($server)) {
+	error("missing server location");
+    } else {
+	notify(DEBUG, ICONFIG, 'server', $server);
+    }
+
+    if (defined($older)) {
+	$ndate = $older;
+	if (length($ndate) < 19) {
+	    $ndate .= substr('9999-99-99-99-99-99', length($older));
+	}
+	if (!($ndate =~ /^\d{4}(-\d\d){5}$/)) {
+	    error("invalid older option: '$older'");
+	}
+    }
+
+    if (defined($newer)) {
+	$ndate = $newer;
+	if (length($ndate) < 19) {
+	    $ndate .= substr('9999-99-99-99-99-99', length($newer));
+	}
+	if (!($ndate =~ /^\d{4}(-\d\d){5}$/)) {
+	    error("invalid newer option: '$newer'");
+	}
+    }
+
+    $controler = Synctl::controler($server);
+    @snapshots = $controler->snapshot();
+
+    @snapshots = grep {
+	if    (defined($older) && $_->date() ge $older)    { 0; }
+	elsif (defined($newer) && $_->date() le $newer)    { 0; }
+	elsif (defined($date) && $_->date() =~ /$date/
+	       && $invert)                                 { 0; }
+	elsif (defined($date) && !($_->date() =~ /$date/)
+	       && !$invert)                                { 0; }
+        else                                               { 1; }
+    } @snapshots;
+
+    foreach $path (@contains) {
+	@snapshots = grep {
+	    defined($_->get_properties($path));
+	} @snapshots;
+    }
+
+    @snapshots = sort { $a->date() cmp $b->date() } @snapshots;
+    if (defined($reverse)) {
+	@snapshots = reverse(@snapshots);
+    }
+
+    foreach $snapshot (@snapshots) {
+	$snapshot->date() =~
+	    m|^(\d{4})-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(.*)$|;
+	($Y, $m, $d, $H, $M, $S, $u) = ($1, $2, $3, $4, $5, $6, $7);
+
+	$text = $format;
+	$text =~ s|(%%)*%Y|$Y|g;
+	$text =~ s|(%%)*%m|$m|g;
+	$text =~ s|(%%)*%d|$d|g;
+	$text =~ s|(%%)*%H|$H|g;
+	$text =~ s|(%%)*%M|$M|g;
+	$text =~ s|(%%)*%S|$S|g;
+	$text =~ s|(%%)*%u|$u|g;
+	printf("%s\n", $text);
+    }
+}
+
+
+sub send_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM send [--client=<path>] [--server=<location>]
+       [--include=<filter>] [--exclude=<path>] [--directory=<path>[:<path>...]]
+       <profile>
+
+Send a new snapshot of the given client to the given server. Both the client
+and the server are either specified by the profile or by the '--client' and
+'--server' options. The client is an absolute or relative path while the server
+is a location in the form <protocol>://<path>[:<remote-path>] where protocol
+is one of 'file' for a local server or 'ssh' for a remote server. If the
+protocol is 'file', than only the <path> may be specified.
+If both the client and server are specified by options, the profile may be
+omitted.
+
+Some files may be excluded from the snapshot with the '--exclude' and
+'--include' options. Each of these options may be specified multiple times with
+a filter which can be either a glob path, starting by a '/' or a perl-regex.
+For each seeked file of the client, the filters are applied in-order and the
+first to match indicates if the file is included or excluded. If a directory is
+excluded, its sub-files are *not* checked and automatically excluded.
+
+The client path, server location or include/exclude filters may be specified
+both in the profile and with the options. For the client and server, the option
+have priority while include/exclude options are appended to the ones specified
+in the profile.
+
+Options:
+  -C <path>, --directory=<path>         Change the search path for the profile
+                                        file. This options may be specified
+                                        many times to indicate many search
+                                        directories.
+
+  -c <path>, --client=<path>            Indicate the path of the client to
+                                        send to the server as a new snapshot.
+
+  -s <location>, --server=<location>    Indicate the location of the server to
+                                        send the snapshot to. A location has
+                                        the form
+                                        <protocol>://<path><:remote-path>.
+                                        If the protocol is 'file', it may be
+                                        omitted.
+
+  -i <filter>, --include=<filter>       Indicate the files matching the filter
+                                        should be included in the snapshot.
+
+  -e <filter>, --exclude=<filter>       Indicate the files matching the filter
+                                        should be excluded of the snapshot.
+EOF
+}
+
+sub send_main
+{
+    my ($profile_name, @err);
+    my (@profile_paths, $client, $server, @filters);
+    my ($profile, $controler);
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'C|directory=s' => \@profile_paths,
+	'c|client=s'    => \$client,
+	's|server=s'    => \$server,
+	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
+	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
+	'v|verbose:+'   => \$VERBOSE
+	);
+    $SIG{__WARN__} = undef;
+
+    Synctl::Configure(VERBOSE => $VERBOSE);
+
+    ($profile_name, @err) = @_;
+
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    $profile = make_profile($profile_name, @profile_paths);
+
+    if (!defined($server)) { $server = $profile->server(); }
+    if (!defined($server)) {
+	error("missing server location");
+    } else {
+	notify(DEBUG, ICONFIG, 'server', $server);
+    }
+
+    if (!defined($client)) { $client = $profile->client(); }
+    if (!defined($client)) {
+	error("missing client location");
+    } else {
+	notify(DEBUG, ICONFIG, 'client', $client);
+    }
+
+    $profile->filters([ @{$profile->filters()}, @filters ]);
+
+    notify(DEBUG, ICONFIG, 'filters',
+	   '[' . join(', ', map { "'$_'" } @{$profile->filters()}) . ']');
+
+    $controler = Synctl::controler($server);
+    Synctl::send($client, $controler, $profile->filter());
+
+    return 0;
+}
+
+
+sub recv_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM recv [--client=<path>] [--server=<location>]
+       [--include=<filter>] [--exclude=<path>] [--directory=<path>[:<path>...]]
+       <profile> [<snapshot>]
+
+Receive a snapshot from a specified server to a client path. Both the client
+and the server are either specified by the profile or by the '--client' and
+'--server' options. The client is an absolute or relative path while the server
+is a location in the form <protocol>://<path>[:<remote-path>] where protocol
+is one of 'file' for a local server or 'ssh' for a remote server. If the
+protocol is 'file', than only the <path> may be specified.
+If both the client and server are specified by options, the profile may be
+omitted. If the snapshot is omitted, the newest snapshot of the server is used,
+otherwise it is a prefix of the expression 'YYYY-mm-dd-HH-MM-SS-u{32}'.
+To omit the profile but specify the snapshot, the profile should be specified
+as the empty string.
+
+Some files may be excluded from the snapshot with the '--exclude' and
+'--include' options. Each of these options may be specified multiple times with
+a filter which can be either a glob path, starting by a '/' or a perl-regex.
+For each seeked file of the client, the filters are applied in-order and the
+first to match indicates if the file is included or excluded. If a directory is
+excluded, its sub-files are *not* checked and automatically excluded.
+
+The client path, server location or include/exclude filters may be specified
+both in the profile and with the options. For the client and server, the option
+have priority while include/exclude options are appended to the ones specified
+in the profile.
+
+Options:
+  -C <path>, --directory=<path>         Change the search path for the profile
+                                        file. This options may be specified
+                                        many times to indicate many search
+                                        directories.
+
+  -c <path>, --client=<path>            Indicate the path of the client to
+                                        send to the server as a new snapshot.
+
+  -s <location>, --server=<location>    Indicate the location of the server to
+                                        send the snapshot to. A location has
+                                        the form
+                                        <protocol>://<path><:remote-path>.
+                                        If the protocol is 'file', it may be
+                                        omitted.
+
+  -i <filter>, --include=<filter>       Indicate the files matching the filter
+                                        should be included in the snapshot.
+
+  -e <filter>, --exclude=<filter>       Indicate the files matching the filter
+                                        should be excluded of the snapshot.
+EOF
+}
+
+sub recv_main
+{
+    my ($profile_name, $snapshot_date, @err);
+    my (@profile_paths, $client, $server, @filters);
+    my ($profile, $controler, $ndate, $snapshot, @snapshots);
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'C|directory=s' => \@profile_paths,
+	'c|client=s'    => \$client,
+	's|server=s'    => \$server,
+	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
+	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
+	'v|verbose:+'   => \$VERBOSE
+	);
+    $SIG{__WARN__} = undef;
+
+    Synctl::Configure(VERBOSE => $VERBOSE);
+
+    ($profile_name, $snapshot_date, @err) = @_;
+
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    $profile = make_profile($profile_name, @profile_paths);
+
+    if (!defined($server)) { $server = $profile->server(); }
+    if (!defined($server)) {
+	error("missing server location");
+    } else {
+	notify(DEBUG, ICONFIG, 'server', $server);
+    }
+
+    if (!defined($client)) { $client = $profile->client(); }
+    if (!defined($client)) {
+	error("missing client location");
+    } else {
+	notify(DEBUG, ICONFIG, 'client', $client);
+    }
+
+    $profile->filters([ @{$profile->filters()}, @filters ]);
+
+    notify(DEBUG, ICONFIG, 'filters',
+	   '[' . join(', ', map { "'$_'" } @{$profile->filters()}) . ']');
+
+    $controler = Synctl::controler($server);
+    @snapshots = $controler->snapshot();
+    @snapshots = sort { $a->date() le $b->date() } @snapshots;
+
+    if (!@snapshots) {
+	error("no snapshot available");
+    }
+
+    if (defined($snapshot_date)) {
+	if (substr($snapshot_date, 0, 1) ne '^') {
+	    $snapshot_date = '^' . $snapshot_date;
+	}
+
+	foreach (@snapshots) {
+	    if ($_->date() =~ $snapshot_date) {
+		$snapshot = $_;
+		last;
+	    }
+	}
+
+	if (!defined($snapshot)) {
+	    error("no snapshot matching '$snapshot_date'");
+	}
+    } else {
+	$snapshot = shift(@snapshots);
+    }
+
+    notify(DEBUG, ICONFIG, 'snapshot', $snapshot->date());
+
+    Synctl::recv($controler, $snapshot, $client, $profile->filter());
+
+    return 0;
+}
+
+
+sub serve_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM serve <path>
+
+Start the program in server mode. This command is not intended to be used by
+human but instead serves as an ssh backend. The given path is the path of the
+local server.
+EOF
+}
+
+sub serve_main
+{
+    my ($path, @err) = @_;
+    my $controler;
+
+    if (!defined($path)) {
+	error("missing server location");
+    } elsif (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    $controler = Synctl::controler($path);
+    return Synctl::serve($controler);
 }
 
 
 sub usage
 {
-    return <<"EOF"
-Usage: $PROGRAM [options] <command> [<args>]
-Make backups from the local computer to either a local or a remote computer in
-an incremental fashion. The way a backup is made is written in a profile which
-needs to be specified for most of commands.
+    return <<"EOF";
+Usage: $PROGRAM [ -h | --help ] [ -V | --version ] <command> <args...>
+
+Backup and restore some files localy or throught ssh. The backups are
+incremental and old backups can be removed.
 
 Commands:
-  help              Give some help about other commands
-  list              List the available backups on a given server
-  recv              Receive and restore a backup from a server
-  send              Send data to backup on a server
+  help                        Print the help message for a given command.
+  init                        Initialize a new backup server.
+  list                        List the backups on a given server.
+  send                        Make a new backup on a given server.
+  recv                        Restore from a backup on a given server.
 
 Options:
   -h, --help                  Print this help message and exit.
-  -V, --version               Print the version informations and exit.
-  -C, --paths <d>[:<d>...]    Change the directory list where to find profiles
+
+  -V, --version               Print the version information and exit.
+
+  -v, --verbose [<level>]     Change the verbosity level. If specified with an
+                              argument, defines the new level, from 0 (nothing)
+                              to 4 (debug). If specified without an argument,
+                              increment the level by 1. The default level is 2
+                              (warning).
 EOF
 }
 
 sub version
 {
-    return <<'EOF'
-synctl 0.1.0
+    return <<'EOF';
+synctl 2.0.0
 Gauthier Voron
 gauthier.voron@mnesic.fr
 EOF
@@ -267,32 +723,40 @@ EOF
 sub main
 {
     my ($command, @args);
-    my ($comprog, @paths);
-
+    my ($main);
     
-    $SIG{__WARN__} = \&opterror;
+    $PROGRAM = $0;
+    $PROGRAM =~ s|^.*/||;
+
+    $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('bundling');
     Getopt::Long::Configure('require_order');
     GetOptionsFromArray(
 	\@_,
-	'h|help'    => sub { printf("%s", usage()); exit (0); },
-	'V|version' => sub { printf("%s", version()); exit (0); },
-	'C|path=s'  => \@paths
+	'h|help'      => sub { printf("%s", usage()); exit (0); },
+	'V|version'   => sub { printf("%s", version()); exit (0); },
+	'v|verbose:+' => \$VERBOSE
 	);
-    Getopt::Long::Configure('permute');
     $SIG{__WARN__} = undef;
+
     ($command, @args) = @_;
+    if (!defined($command)) {
+	error('missing command operand');
+    }
     
-    if (!defined($command)) { error('missing command operand'); }
+    $main = $MAINS{$command};
+    if (!defined($main)) {
+	error("unknown command '$command'");
+    }
 
-    $comprog = $COMMANDS{$command};
-    if (!defined($comprog)) { error("invalid command operand : '$command'"); }
-
-    if (@paths) { @CONFIG_PATHS = map { split(':', $_) } @paths; }
-    $COMMAND_HEADER = $comprog->[0];
-    return $comprog->[1]->(@args);
+    $COMMAND = " $command";
+    Synctl::Configure(ERROR => \&syncerr);
+    Synctl::Configure(VERBOSE => $VERBOSE);
+    return $main->(@args);
 }
 
-
 exit (main(@ARGV));
+
+
+1;
 __END__

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use POSIX qw(getgid getuid);
-use Test::More tests => 65;
+use Test::More tests => 93;
 
 use t::File;
 use t::MockDeposit;
@@ -29,6 +29,14 @@ mktfile($box0 . '/restricted-different-nmode', MODE => 0644, CONTENT => "A");
 mktfile($box0 . '/restricted-different-content', MODE => 0000, CONTENT => "B");
 mktdir( $box0 . '/restricted-different-type', MODE => 0000);
 mktfile($box0 . '/restricted-removed', MODE => 0000, CONTENT => "A");
+mktfile($box0 . '/broken-hlink0', MODE => 0644, CONTENT => "A");
+link($box0 . '/broken-hlink0', $box0 . '/broken-hlink1');
+mktfile($box0 . '/created-hlink0', MODE => 0644, CONTENT => "A");
+mktfile($box0 . '/created-hlink1', MODE => 0644, CONTENT => "A");
+mktfile($box0 . '/split-hlink0', MODE => 0644, CONTENT => "A");
+mktfile($box0 . '/split-hlink1', MODE => 0644, CONTENT => "A");
+mktfile($box0 . '/split-hlink2', MODE => 0644, CONTENT => "A");
+mktfile($box0 . '/split-hlink3', MODE => 0644, CONTENT => "A");
 
 
 my $uid = getuid();
@@ -41,8 +49,8 @@ my $deposit_mapper = {
 
 my ($deposit, $snapshot);
 my ($receiver, $done, $err);
-my ($mode, $user, $group);
-my ($fh, $content, $entry, $props);
+my ($dev, $inode, $mode, $user, $group);
+my ($fh, $content, $entry, $props, %nodemap, %rnodemap, $node);
 
 $deposit = t::MockDeposit->new('', {
     $deposit_mapper->{"A"} => "A",
@@ -63,7 +71,17 @@ $snapshot = t::MockSnapshot->new({
     '/restricted-different-nmode'   => $deposit_mapper->{"A"},
     '/restricted-different-content' => $deposit_mapper->{"A"},
     '/restricted-different-type'    => $deposit_mapper->{"A"},
-    '/restricted-added'             => $deposit_mapper->{"A"} }, {
+    '/restricted-added'             => $deposit_mapper->{"A"},
+    '/added-hlink0'                 => $deposit_mapper->{"A"},
+    '/added-hlink1'                 => $deposit_mapper->{"A"},
+    '/broken-hlink0'                => $deposit_mapper->{"A"},
+    '/broken-hlink1'                => $deposit_mapper->{"A"},
+    '/created-hlink0'               => $deposit_mapper->{"A"},
+    '/created-hlink1'               => $deposit_mapper->{"A"},
+    '/split-hlink0'                 => $deposit_mapper->{"A"},
+    '/split-hlink1'                 => $deposit_mapper->{"A"},
+    '/split-hlink2'                 => $deposit_mapper->{"A"},
+    '/split-hlink3'                 => $deposit_mapper->{"A"} }, {
     '/'                             => {
 	MODE =>  040700, USER => $uid, GROUP => $gid },
     '/same-all'                     => {
@@ -87,16 +105,48 @@ $snapshot = t::MockSnapshot->new({
     '/restricted-different-type'    => {
 	MODE => 0100000, USER => $uid, GROUP => $gid },
     '/restricted-added'             => {
-	MODE => 0100000, USER => $uid, GROUP => $gid } });
+	MODE => 0100000, USER => $uid, GROUP => $gid },
+    '/added-hlink0'                 => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 42                                  },
+    '/added-hlink1'                 => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 42                                  },
+    '/broken-hlink0'                 => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 43                                  },
+    '/broken-hlink1'                 => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 44                                  },
+    '/created-hlink0'                => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 45                                  },
+    '/created-hlink1'                => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 45                                  },
+    '/split-hlink0'                  => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 46                                  },
+    '/split-hlink1'                  => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 46                                  },
+    '/split-hlink2'                  => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 47                                  },
+    '/split-hlink3'                  => {
+        MODE => 0100644, USER => $uid, GROUP => $gid,
+        INODE => 47                                  } });
 
 $receiver = Synctl::Receiver->new('/', $box0, $snapshot, $deposit);
 ($done, $err) = $receiver->receive();
 
-is($done, 11, 'receive files right amount');
+is($done, 17, 'receive files right amount');
 is($err, 0, 'receive files no error');
 
+%nodemap = ();
 foreach $entry (keys(%{$snapshot->{'content'}})) {
-    ($mode, $user, $group) = (lstat($box0 . $entry))[2, 4, 5];
+    ($dev, $inode, $mode, $user, $group) =
+	(lstat($box0 . $entry))[0, 1, 2, 4, 5];
     
     is($mode, $snapshot->{'properties'}->{$entry}->{MODE},
        "receive files '$entry' correct mode");
@@ -104,6 +154,28 @@ foreach $entry (keys(%{$snapshot->{'content'}})) {
     #    "receive files '$entry' correct user");
     # is($group, $snapshot->{'properties'}->{$entry}->{GROUP},
     #    "receive files '$entry' correct group");
+
+    next if (!defined($dev));
+
+    if (defined($snapshot->{'properties'}->{$entry}->{INODE})) {
+	$node = $nodemap{$snapshot->{'properties'}->{$entry}->{INODE}};
+	if (defined($node)) {
+	    is($node, $dev . ':' . $inode,
+	       "receive files '$entry' correct inode");
+	} else {
+	    $nodemap{$snapshot->{'properties'}->{$entry}->{INODE}} =
+		$dev . ':' . $inode;
+	}
+    }
+
+    $node = $rnodemap{$dev . ':' . $inode};
+    if (defined($node)) {
+	is($node, $snapshot->{'properties'}->{$entry}->{INODE},
+	   "receive files '$entry' correct inode");
+    } else {
+	$rnodemap{$dev . ':' . $inode} =
+	    $snapshot->{'properties'}->{$entry}->{INODE};
+    }
 
     next if ($entry eq '/');
 
@@ -114,6 +186,8 @@ foreach $entry (keys(%{$snapshot->{'content'}})) {
     close($fh);
 
     is($content, "A", "receive files '$entry' correct content");
+
+    chmod($mode, $box0 . $entry) or die ($!);
 }
 
 

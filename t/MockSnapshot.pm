@@ -71,7 +71,7 @@ sub _get_directory
 sub _get_properties
 {
     my ($self, $path, @err) = @_;
-    
+
     return $self->{'properties'}->{$path};
 }
 
