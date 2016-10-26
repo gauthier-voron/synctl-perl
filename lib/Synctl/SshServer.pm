@@ -209,6 +209,16 @@ sub __create
     $connection->send($snapshot->date());
 }
 
+sub __delete
+{
+    my ($self, $date) = @_;
+    my $snapshot = $self->__get_snapshot($date);
+    my $controler = $self->__controler();
+    my $connection = $self->__connection();
+
+    $connection->send($controler->delete($snapshot));
+}
+
 
 sub serve
 {
@@ -229,6 +239,7 @@ sub serve
 	'snapshot_get_properties' => \&__snapshot_get_properties,
 	'snapshot'                => \&__snapshot,
 	'create'                  => \&__create,
+	'delete'                  => \&__delete,
 	'syn'                     => sub {$self->__connection()->send('ack')},
 	'exit'                    => sub { $running = 0 }
 	);

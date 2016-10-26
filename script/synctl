@@ -11,29 +11,32 @@ use Synctl::Profile;
 
 
 my %MAINS = (
-    'help' => \&help_main,
-    'init' => \&init_main,
-    'list' => \&list_main,
-    'send' => \&send_main,
-    'recv' => \&recv_main,
+    'help'  => \&help_main,
+    'init'  => \&init_main,
+    'list'  => \&list_main,
+    'send'  => \&send_main,
+    'recv'  => \&recv_main,
+    'rm'    => \&rm_main,
     'serve' => \&serve_main
     );
 
 my %USAGES = (
-    'help' => \&help_usage,
-    'init' => \&init_usage,
-    'list' => \&list_usage,
-    'send' => \&send_usage,
-    'recv' => \&recv_usage,
+    'help'  => \&help_usage,
+    'init'  => \&init_usage,
+    'list'  => \&list_usage,
+    'send'  => \&send_usage,
+    'recv'  => \&recv_usage,
+    'rm'    => \&rm_usage,
     'serve' => \&serve_usage
     );
 
 my %INFOS = (
-    'help' => 'obtain some help for a command',
-    'init' => 'initialize a local server',
-    'list' => 'list the snapshots of a given server',
-    'send' => 'send files to create a new snapshot',
-    'recv' => 'receive files from a given snapshot',
+    'help'  => 'obtain some help for a command',
+    'init'  => 'initialize a local server',
+    'list'  => 'list the snapshots of a given server',
+    'send'  => 'send files to create a new snapshot',
+    'recv'  => 'receive files from a given snapshot',
+    'rm'    => 'remove snapshots of a given server',
     'serve' => 'serve ssh forwared requests'
     );
 
@@ -330,9 +333,12 @@ sub list_main
 	'c|contain=s'   => \@contains,
 	'r|reverse'     => \$reverse,
 	'f|format=s'    => \$format,
-	's|server=s'    => \$server
+	's|server=s'    => \$server,
+	'v|verbose:+'   => \$VERBOSE
 	);
     $SIG{__WARN__} = undef;
+
+    Synctl::Configure(VERBOSE => $VERBOSE);
 
     ($profile_name, @err) = @_;
 
@@ -651,6 +657,126 @@ sub recv_main
     notify(DEBUG, ICONFIG, 'snapshot', $snapshot->date());
 
     Synctl::recv($controler, $snapshot, $client, $profile->filter());
+
+    return 0;
+}
+
+
+sub rm_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM rm [--directory=<path>[:<path>]] [--force]
+       [--server=<location> | <profile>] <snapshot> [<snapshots...>]
+
+Remove one or several snapshots from the specified server. The server can be
+specified either in the profile or with the '--server' option. In this last
+case, the profile may be omitted. The snapshots are prefixes of the expression
+'YYYY-mm-dd-HH-MM-SS-u{32}'.
+
+By default, ask confirmation before to remove any snapshot, unless the
+'--force' option is specified.
+
+Options:
+  -C <path>, --directory=<path>         Change the search path for the profile
+                                        file. This options may be specified
+                                        many times to indicate many search
+                                        directories.
+
+  -s <location>, --server=<location>    Indicate the location of the server to
+                                        remove the snapshot from. A location
+                                        has the form
+                                        <protocol>://<path><:remote-path>.
+                                        If the protocol is 'file', it may be
+                                        omitted.
+
+  -f, --force                           Avoid to ask confirmation before to
+                                        remove the snapshots.
+EOF
+}
+
+sub rm_main
+{
+    my ($profile_name, @snapshot_dates);
+    my (@profile_paths, $server, $force);
+    my ($profile, $controler, $date, @snapshots, %selection, $answer);
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'C|directory=s' => \@profile_paths,
+	'f|force'       => \$force,
+	's|server=s'    => \$server,
+	'v|verbose:+'   => \$VERBOSE
+	);
+    $SIG{__WARN__} = undef;
+
+    Synctl::Configure(VERBOSE => $VERBOSE);
+
+    if (defined($server)) {
+	(@snapshot_dates) = @_;
+	$profile_name = '';
+    } else {
+	($profile_name, @snapshot_dates) = @_;
+    }
+
+    if (!@snapshot_dates) {
+	error('missing snapshot operand');
+    }
+
+    $profile = make_profile($profile_name, @profile_paths);
+
+    if (!defined($server)) { $server = $profile->server(); }
+    if (!defined($server)) {
+	error('missing server location');
+    } else {
+	notify(DEBUG, ICONFIG, 'server', $server);
+    }
+
+    $controler = Synctl::controler($server);
+    @snapshots = $controler->snapshot();
+
+    if (!@snapshots) {
+	error('no snapshot available');
+    }
+
+    foreach $date (@snapshot_dates) {
+	if (substr($date, 0, 1) ne '^') {
+	    $date = '^' . $date;
+	}
+
+	foreach (@snapshots) {
+	    if ($_->date() =~ $date) {
+		$selection{$_->date()} = $_;
+	    }
+	}
+    }
+
+    if (!%selection) {
+	error('no valid snapshot selected');
+    }
+
+    if ($force) {
+	foreach (sort { $a cmp $b } map { $_->date() } values(%selection)) {
+	    notify(DEBUG, ICONFIG, 'snapshot', $_);
+	}
+    } else {
+	printf("Following snapshots will be removed:\n");
+	foreach (sort { $a cmp $b } map { $_->date() } values(%selection)) {
+	    printf("  %s\n", $_);
+	}
+	printf("Are you sure [y/N] ? ");
+	$| = 1;
+
+	chomp($answer = <STDIN>);
+	if (lc($answer) ne 'y') {
+	    return 1;
+	}
+    }
+
+    foreach (values(%selection)) {
+	$controler->delete($_);
+    }
 
     return 0;
 }

@@ -20,21 +20,24 @@ use constant {
     INFO    => 3,
     DEBUG   => 4,
 
-    IFCREAT => 'Create file',        # path of the file created
-    IFDELET => 'Delete file',        # path of the file deleted
-    ILCREAT => 'Create link',        # path of the source, path of the dest
-    IRGET   => 'Create reference',   # hash of the reference
-    IRPUT   => 'Delete reference',   # hash of the reference
-    ICSEND  => 'Send bytes',         # amount of sent bytes
-    ICRECV  => 'Receive bytes',      # amount of received bytes
-    ICONFIG => 'Use configuration',  # what is configured, at what value
-    IRLOAD  => 'Load references',    # <nothing>
-    IFCHECK => 'Check file',         # path of the file
-    IFPROCS => 'Process file',       # path of the file
-    IFSEND  => 'Send file',          # path of the file
-    IFRECV  => 'Receive file',       # path of the file
-    IREGEX  => 'Build regex',        # include/exclude, from, to
-    INODMAP => 'Nodemap update',     # client/server, key, value
+    IFCREAT => 'Create file',         # path of the file created
+    IFDELET => 'Delete file',         # path of the file deleted
+    ILCREAT => 'Create link',         # path of the source, path of the dest
+    IRGET   => 'Create reference',    # hash of the reference
+    IRPUT   => 'Delete reference',    # hash of the reference
+    ICSEND  => 'Send bytes',          # amount of sent bytes
+    ICRECV  => 'Receive bytes',       # amount of received bytes
+    ICONFIG => 'Use configuration',   # what is configured, at what value
+    IRLOAD  => 'Load references',     # <nothing>
+    IRDELET => 'Deleting references', # <nothing>
+    IFCHECK => 'Check file',          # path of the file
+    IFPROCS => 'Process file',        # path of the file
+    IFSEND  => 'Send file',           # path of the file
+    IFRECV  => 'Receive file',        # path of the file
+    IREGEX  => 'Build regex',         # include/exclude, from, to
+    INODMAP => 'Nodemap update',      # client/server, key, value
+    IUMODE  => 'Unexpected mode',     # file, mode
+    IUCONT  => 'Unexpected content',  # file, content
 };
 
 
@@ -46,7 +49,7 @@ our %EXPORT_TAGS = (
     'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG) ],
     'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
                       IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
-                      IFSEND IFRECV IREGEX INODMAP) ],
+                      IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET) ],
     'all'     => [ qw(Configure backend init controler send list recv serve) ]
     );
 
@@ -363,7 +366,7 @@ sub __ssh_controler
     my ($pid, $child_in, $child_out, $parent_in, $parent_out);
     my ($connection, $controler);
     my @lcommand = qw(ssh);
-    my @rcommand = qw(/home/gauthier/Projets/perl-synctl/script/nsynctl serve);
+    my @rcommand = qw(/home/gauthier/Projets/perl-synctl/script/synctl serve);
 
     if (!defined($location)) {
 	return throw(ESYNTAX, undef);

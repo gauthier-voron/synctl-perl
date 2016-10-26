@@ -100,19 +100,19 @@ sub create
 
 sub delete
 {
-    my ($self, $date, @err) = @_;
+    my ($self, $snapshot, @err) = @_;
     my ($connection, $ret);
 
-    if (!defined($date)) {
+    if (!defined($snapshot)) {
 	return throw(ESYNTAX, undef);
+    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::Snapshot')) {
+	return throw(EINVLD, $snapshot);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
-    } elsif (ref($date) ne '') {
-	return throw(EINVLD, $date);
     }
 
     $connection = $self->__connection();
-    $ret = $connection->send('delete', $date);
+    $ret = $connection->send('delete', $snapshot->date());
 
     return $ret;
 }

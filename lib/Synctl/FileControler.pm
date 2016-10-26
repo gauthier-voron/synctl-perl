@@ -6,7 +6,10 @@ use warnings;
 
 use Carp;
 use Digest::MD5 qw(md5_hex);
+use Fcntl qw(:mode);
+use Scalar::Util qw(blessed);
 
+use Synctl qw(:error :verbose);
 use Synctl::FileSnapshot;
 
 
@@ -87,7 +90,9 @@ sub create
     my ($self, @err) = @_;
     my ($date, $path, $root, $snapshot);
 
-    if (@err) { confess('unexpected argument'); }
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
 
     $path = md5_hex(rand(1 << 32));
 
@@ -97,21 +102,112 @@ sub create
 
     $date = $snapshot->date();
     if (!rename($root . '/' . $path, $root . '/' . $date)) {
-	return undef;
+	return throw(ESYS, $!);
     } else {
 	return Synctl::FileSnapshot->new($root . '/' . $date);
     }
 }
 
+
+sub __delete_ref_file
+{
+    my ($self, $snapshot, $name) = @_;
+    my ($ref, $deposit);
+
+    $ref = $snapshot->get_file($name);
+    if (!defined($ref)) {
+	notify(WARN, IUCONT, $self->__snaproot() . '/' . $snapshot->path()
+	       . '->' . $name, undef);
+	return 0;
+    }
+
+    $deposit = $self->deposit();
+    $deposit->put($ref);
+
+    return 1;
+}
+
+sub __delete_ref_directory
+{
+    my ($self, $snapshot, $name) = @_;
+    my $sep = ($name eq '/') ? '' : '/';
+    my ($entries, $sum, $entry);
+
+    $sum = 0;
+    $entries = $snapshot->get_directory($name);
+    foreach $entry (@$entries) {
+	$sum += $self->__delete_ref($snapshot, $name . $sep . $entry);
+    }
+
+    return $sum;
+}
+
+sub __delete_ref
+{
+    my ($self, $snapshot, $name) = @_;
+    my ($properties, $mode, $entries);
+
+    $properties = $snapshot->get_properties($name);
+    if (!defined($properties)) {
+	return 0;
+    }
+
+    $mode = $properties->{MODE};
+    if (S_ISREG($mode)) {
+	return $self->__delete_ref_file($snapshot, $name);
+    } elsif (S_ISDIR($mode)) {
+	return $self->__delete_ref_directory($snapshot, $name);
+    } else {
+	notify(WARN, IUMODE, $self->__snaproot() . '/'
+	       . $snapshot->path() . '->' . $name, $mode);
+	return 0;
+    }
+}
+
+sub __delete
+{
+    my ($self, $path) = @_;
+    my ($dh, $entry);
+
+    if (-d $path && !(-l $path)) {
+	if (!opendir($dh, $path)) {
+	    return 0;
+	}
+
+	foreach $entry (grep { ! /^\.\.?$/ } readdir($dh)) {
+	    $self->__delete($path . '/' . $entry);
+	}
+
+	closedir($dh);
+	if (!rmdir($path)) {
+	    return 0;
+	}
+    } else {
+	if (!unlink($path)) {
+	    return 0;
+	}
+    }
+
+    return 1;
+}
+
 sub delete
 {
-    my ($self, $date, @err) = @_;
-    my ($root, $snapshot);
+    my ($self, $snapshot, @err) = @_;
 
-    if (@err) { confess('unexpected argument'); }
-    if (!defined($date)) { confess('missing argument'); }
+    if (!defined($snapshot)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::FileSnapshot')) {
+	return throw(EINVLD, $snapshot);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
 
-    confess('not yet implemented');
+    notify(INFO, IRDELET);
+    $self->__delete_ref($snapshot, '/');
+
+    notify(INFO, IFDELET, $snapshot->path());
+    return $self->__delete($snapshot->path());
 }
 
 

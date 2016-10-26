@@ -39,14 +39,10 @@ sub test_controler
     @arr = $controler->snapshot();
     is(scalar(@arr), 2, 'controler list (after two creations)');
 
-  TODO: {
-      todo_skip "snapshot deletion not yet implemented", 2;
-     
-      ok($controler->delete($snapshot0), 'controler delete');
+    ok($controler->delete($snapshot0), 'controler delete');
 
-      @arr = $controler->snapshot();
-      is(scalar(@arr), 1, 'controler list (after one deletion)');
-    }
+    @arr = $controler->snapshot();
+    is(scalar(@arr), 1, 'controler list (after one deletion)');
 }
 
 
