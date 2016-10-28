@@ -147,7 +147,7 @@ sub _normalize_input
     } elsif (ref($input) eq 'SCALAR') {
 	$code = sub { my $tmp = $$input; $$input = undef; return $tmp; };
     } elsif (ref($input) eq 'IO::Handle') {
-	$code = sub { return $input->getline() };
+	$code = sub { my $b; $input->read($b, 8192) or $b = undef; return $b };
     } elsif (ref($input) eq 'CODE') {
 	$code = $input;
     } else {

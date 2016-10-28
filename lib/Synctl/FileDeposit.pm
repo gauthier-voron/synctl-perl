@@ -220,6 +220,7 @@ sub _recv
 	return undef;
     }
 
+    local $/ = \8192;
     while (defined($chunk = <$fh>)) {
 	$handler->($chunk);
     }
