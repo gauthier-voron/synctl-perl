@@ -5,8 +5,9 @@ use strict;
 use warnings;
 
 use Carp;
-
 use Digest::MD5 qw(md5_hex);
+
+use Synctl qw(:verbose);
 
 
 sub __connection {

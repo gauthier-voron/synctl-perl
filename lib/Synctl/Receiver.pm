@@ -391,6 +391,7 @@ sub __receive_link
     $shash = $self->snapshot()->get_file($sprops->{PATH});
 
     if ($shash ne $chash) {
+	notify(DEBUG, IWRECV, $sprops->{SIZE});
 	$ret = $self->deposit()->recv($shash, \$content);
 	if (!$ret) {
 	    return undef;
@@ -453,6 +454,7 @@ sub __receive_file
 	    return undef;
 	}
 
+	notify(DEBUG, IWRECV, $sprops->{SIZE});
 	$ret = $self->deposit()->recv($shash, $fh);
 
 	close($fh);

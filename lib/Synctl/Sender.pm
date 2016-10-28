@@ -119,6 +119,7 @@ sub __send_link
 
     $ret = $deposit->get($hash);
     if (!defined($ret)) {
+	notify(INFO, IWSEND, $args{SIZE});
 	$ret = $deposit->send($content);
 	if ($ret ne $hash) {
 	    $deposit->put($ret);
@@ -127,7 +128,7 @@ sub __send_link
     }
 
     $snapshot = $self->snapshot();
-    %props = map { $_, $args{$_} } qw(MODE USER GROUP MTIME INODE);
+    %props = map { $_, $args{$_} } qw(MODE USER GROUP MTIME INODE SIZE);
 
     if (!$snapshot->set_file($args{NAME}, $hash, %props)) {
 	$deposit->put($hash);
@@ -142,7 +143,7 @@ sub __send_file
     my ($self, %args) = @_;
     my ($deposit, $snapshot);
     my ($fh, $hash, $ret, %props);
-    my $ctx;
+    my ($ctx);
 
     if (!open($fh, '<', $args{PATH})) { return undef; }
 
@@ -154,7 +155,13 @@ sub __send_file
 
     $ret = $deposit->get($hash);
     if (!defined($ret)) {
-	if (!seek($fh, 0, SEEK_SET)) { close($fh); return undef; }
+	if (!seek($fh, 0, SEEK_SET)) {
+	    close($fh);
+	    return undef;
+	}
+
+	notify(INFO, IWSEND, $args{SIZE});
+
 	$ret = $deposit->send($fh);
 	close($fh);
 	
@@ -167,7 +174,7 @@ sub __send_file
     }
 
     $snapshot = $self->snapshot();
-    %props = map { $_, $args{$_} } qw(MODE USER GROUP MTIME INODE);
+    %props = map { $_, $args{$_} } qw(MODE USER GROUP MTIME INODE SIZE);
 
     if (!$snapshot->set_file($args{NAME}, $hash, %props)) {
 	$deposit->put($hash);
@@ -183,7 +190,7 @@ sub __send_directory
     my ($snapshot, $ret, %props);
 
     $snapshot = $self->snapshot();
-    %props = map { $_, $args{$_} } qw(MODE USER GROUP MTIME INODE);
+    %props = map { $_, $args{$_} } qw(MODE USER GROUP MTIME);
 
     if (!$snapshot->set_directory($args{NAME}, %props)) { return undef; }
 

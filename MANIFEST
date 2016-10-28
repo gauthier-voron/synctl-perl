@@ -44,5 +44,6 @@ lib/Synctl/SshServer.pm
 lib/Synctl/SshSnapshot.pm
 lib/Synctl/Object.pm
 lib/Synctl/SshBackend.pm
+lib/Synctl/Verbose.pm
 examples/full-ssh
 examples/home-local

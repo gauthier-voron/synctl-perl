@@ -25,6 +25,8 @@ use constant {
     ILCREAT => 'Create link',         # path of the source, path of the dest
     IRGET   => 'Create reference',    # hash of the reference
     IRPUT   => 'Delete reference',    # hash of the reference
+    IWSEND  => 'Will send bytes',     # amount of bytes to be sent
+    IWRECV  => 'Will receive bytes',  # amount of bytes to be received
     ICSEND  => 'Send bytes',          # amount of sent bytes
     ICRECV  => 'Receive bytes',       # amount of received bytes
     ICONFIG => 'Use configuration',   # what is configured, at what value
@@ -49,7 +51,8 @@ our %EXPORT_TAGS = (
     'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG) ],
     'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
                       IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
-                      IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET) ],
+                      IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET IWSEND
+                      IWRECV synthetic) ],
     'all'     => [ qw(Configure backend init controler send list recv serve) ]
     );
 
@@ -71,6 +74,7 @@ require Synctl::Sender;
 require Synctl::SshControler;
 require Synctl::SshProtocol;
 require Synctl::SshServer;
+require Synctl::Verbose;
 
 
 sub Configure
@@ -211,42 +215,14 @@ sub __configure_verbose
     return 1;
 }
 
-
-sub backend
+sub synthetic
 {
-    my ($target, @err) = @_;
-    my ($type, $class, $classpath);
-    my %types = (
-	'file' => 'Synctl::FileBackend',
-	'ssh'  => 'Synctl::SshBackend',
-	''     => 'Synctl::FileBackend'
-	);
-
-    if (@err) { confess('unexpected parameters'); }
-    if (ref($target) ne '') { confess('target should be a scalar'); }
-
-
-    if ($target =~ m|^(.*?)://|) {
-	$type = $1;
-    } elsif ($target =~ m|^(.*)@(.*):(.*)$|) {
-	$type = 'ssh';
-	$target = 'ssh://' . $target;
-    } else {
-	$type = '';
-    }
-
-    $class = $types{$type};
-    if (!defined($class)) {
-	carp("unknown scheme '$type'");
-	return undef;
-    }
-
-    $classpath = $class;
-    $classpath =~ s|::|/|g;
-    $classpath .= '.pm';
-    require $classpath;
+    my $printer = Synctl::Verbose->new();
     
-    return $class->new($target);
+    return sub {
+	__filter_notice(WARN, @_);
+	$printer->notice(@_);
+    }
 }
 
 

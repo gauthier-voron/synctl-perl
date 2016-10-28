@@ -100,6 +100,7 @@ is_deeply($snapshot->{'content'}, {
 foreach $path (keys(%hash)) {
     delete($hash{$path}->{MTIME});
     delete($hash{$path}->{INODE});
+    delete($hash{$path}->{SIZE});
 }
 
 is_deeply(\%hash, {
@@ -171,6 +172,7 @@ is_deeply($snapshot->{'content'}, {
 foreach $path (keys(%hash)) {
     delete($hash{$path}->{MTIME});
     delete($hash{$path}->{INODE});
+    delete($hash{$path}->{SIZE});
 }
 
 is_deeply(\%hash, {

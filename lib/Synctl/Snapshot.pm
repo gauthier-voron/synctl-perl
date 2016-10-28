@@ -55,7 +55,7 @@ sub _wrap_properties
     my ($key, $value);
 
     foreach $key (keys(%$args)) {
-	if (grep { $key eq $_ } qw(MODE USER GROUP MTIME INODE)) {
+	if (grep { $key eq $_ } qw(MODE USER GROUP MTIME INODE SIZE)) {
 	    $value = $args->{$key};
 	    if (ref($value) ne '') { return undef; }
 	} else {

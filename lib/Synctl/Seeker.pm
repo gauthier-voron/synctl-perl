@@ -103,35 +103,37 @@ sub __normalize_output
 sub __seek_link
 {
     my ($self, $path, $ohandler, $ehandler) = @_;
-    my ($dev, $inode, $mode, $user, $group, $mtime);
+    my ($dev, $inode, $mode, $user, $group, $size, $mtime);
     my $lpath = $self->__path() . $path;
 
-    ($dev, $inode, $mode, $user, $group, $mtime) =
-	(lstat($lpath))[0, 1, 2, 4, 5, 9];
+    ($dev, $inode, $mode, $user, $group, $size, $mtime) =
+	(lstat($lpath))[0, 1, 2, 4, 5, 7, 9];
 
     $ohandler->(NAME => $path, PATH => $lpath, MODE => $mode, USER => $user,
-		GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode);
+		GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode,
+		SIZE => $size);
     return 1;
 }
 
 sub __seek_file
 {
     my ($self, $path, $ohandler, $ehandler) = @_;
-    my ($dev, $inode, $mode, $user, $group, $mtime);
+    my ($dev, $inode, $mode, $user, $group, $size, $mtime);
     my $fpath = $self->__path() . $path;
 
-    ($dev, $inode, $mode, $user, $group, $mtime) =
-	(stat($fpath))[0, 1, 2, 4, 5, 9];
+    ($dev, $inode, $mode, $user, $group, $size, $mtime) =
+	(stat($fpath))[0, 1, 2, 4, 5, 7, 9];
 
     $ohandler->(NAME => $path, PATH => $fpath, MODE => $mode, USER => $user,
-		GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode);
+		GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode,
+		SIZE => $size);
     return 1;
 }
 
 sub __seek_directory
 {
     my ($self, $path, $ohandler, $ehandler) = @_;
-    my ($dev, $inode, $mode, $user, $group, $mtime);
+    my ($dev, $inode, $mode, $user, $group, $size, $mtime);
     my ($dpath, $dh, $entry, $sep, %output);
     my $count = 0;
 
@@ -143,11 +145,12 @@ sub __seek_directory
 	$sep = '/';
     }
 
-    ($dev, $inode, $mode, $user, $group, $mtime) =
-	(stat($dpath))[0, 1, 2, 4, 5, 9];
+    ($dev, $inode, $mode, $user, $group, $size, $mtime) =
+	(stat($dpath))[0, 1, 2, 4, 5, 7, 9];
 
     %output = (NAME => $path, PATH => $dpath, MODE => $mode, USER => $user,
-	       GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode);
+	       GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode,
+	       SIZE => $size);
 
     if (!opendir($dh, $dpath)) {
 	$ehandler->(%output);

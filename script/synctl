@@ -8,6 +8,7 @@ use Getopt::Long qw(GetOptionsFromArray);
 
 use Synctl qw(:verbose);
 use Synctl::Profile;
+use Synctl::Verbose;
 
 
 my %MAINS = (
@@ -83,6 +84,33 @@ sub syncerr
 
     $code = lc($code);
     error("$code '$message'");
+}
+
+sub verbose
+{
+    my ($opt, $val) = @_;
+    my $effect;
+    my %effects = (
+	0 => 0,
+	1 => ERROR,
+	2 => WARN ,
+	3 => Synctl::synthetic(),
+	4 => INFO,
+	5 => DEBUG
+	);
+
+    if ($val < 0) {
+	$VERBOSE++;
+    } else {
+	$VERBOSE = $val;
+    }
+
+    $effect = $effects{$VERBOSE};
+    if (!defined($effect)) {
+	$effect = DEBUG;
+    }
+
+    Synctl::Configure(VERBOSE => $effect);
 }
 
 
@@ -216,12 +244,10 @@ sub init_main
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
-	'f|force'     => \$force,
-	'v|verbose:+' => \$VERBOSE
+	'f|force'      => \$force,
+	'v|verbose:-1' => \&verbose
 	);
     $SIG{__WARN__} = undef;
-
-    Synctl::Configure(VERBOSE => $VERBOSE);
 
     ($path, @err) = @_;
     if (!defined($path)) {
@@ -334,11 +360,9 @@ sub list_main
 	'r|reverse'     => \$reverse,
 	'f|format=s'    => \$format,
 	's|server=s'    => \$server,
-	'v|verbose:+'   => \$VERBOSE
+	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
-
-    Synctl::Configure(VERBOSE => $VERBOSE);
 
     ($profile_name, @err) = @_;
 
@@ -484,11 +508,9 @@ sub send_main
 	's|server=s'    => \$server,
 	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
 	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
-	'v|verbose:+'   => \$VERBOSE
+	'v|verbose:-1'   => \&verbose
 	);
     $SIG{__WARN__} = undef;
-
-    Synctl::Configure(VERBOSE => $VERBOSE);
 
     ($profile_name, @err) = @_;
 
@@ -594,11 +616,9 @@ sub recv_main
 	's|server=s'    => \$server,
 	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
 	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
-	'v|verbose:+'   => \$VERBOSE
+	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
-
-    Synctl::Configure(VERBOSE => $VERBOSE);
 
     ($profile_name, $snapshot_date, @err) = @_;
 
@@ -707,11 +727,9 @@ sub rm_main
 	'C|directory=s' => \@profile_paths,
 	'f|force'       => \$force,
 	's|server=s'    => \$server,
-	'v|verbose:+'   => \$VERBOSE
+	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
-
-    Synctl::Configure(VERBOSE => $VERBOSE);
 
     if (defined($server)) {
 	(@snapshot_dates) = @_;
@@ -859,9 +877,9 @@ sub main
     Getopt::Long::Configure('require_order');
     GetOptionsFromArray(
 	\@_,
-	'h|help'      => sub { printf("%s", usage()); exit (0); },
-	'V|version'   => sub { printf("%s", version()); exit (0); },
-	'v|verbose:+' => \$VERBOSE
+	'h|help'       => sub { printf("%s", usage()); exit (0); },
+	'V|version'    => sub { printf("%s", version()); exit (0); },
+	'v|verbose:-1' => \&verbose
 	);
     $SIG{__WARN__} = undef;
 
@@ -877,7 +895,6 @@ sub main
 
     $COMMAND = " $command";
     Synctl::Configure(ERROR => \&syncerr);
-    Synctl::Configure(VERBOSE => $VERBOSE);
     return $main->(@args);
 }
 

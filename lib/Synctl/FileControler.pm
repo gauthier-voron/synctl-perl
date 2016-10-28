@@ -153,7 +153,7 @@ sub __delete_ref
     }
 
     $mode = $properties->{MODE};
-    if (S_ISREG($mode)) {
+    if (S_ISREG($mode) || S_ISLNK($mode)) {
 	return $self->__delete_ref_file($snapshot, $name);
     } elsif (S_ISDIR($mode)) {
 	return $self->__delete_ref_directory($snapshot, $name);
