@@ -64,7 +64,10 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw(
 );
 
-our $VERSION = '0.1.0';
+our $VERSION = '2.0.0';
+our $AUTHOR  = 'Gauthier Voron';
+our $MAILTO  = 'gauthier.voron@mnesic.fr';
+
 
 require Synctl::FileControler;
 require Synctl::FileDeposit;
@@ -247,7 +250,7 @@ sub __check_empty_dir
 sub init
 {
     my ($location, @err) = @_;
-    my ($type, $path, $deposit, $controler);
+    my ($type, $path, $deposit, $controler, $fh);
 
     if (!defined($location)) {
 	return throw(ESYNTAX, $location);
@@ -292,6 +295,14 @@ sub init
 	return throw(ESYS, $!, $path . '/snapshots');
     } else {
 	notify(INFO, IFCREAT, $path . '/snapshots');
+    }
+
+    if (!open($fh, '>', $path . '/version')) {
+	return throw(ESYS, $!, $path . '/version');
+    } else {
+	printf($fh "%s\n", $VERSION);
+	close($fh);
+	notify(INFO, IFCREAT, $path . '/version');
     }
 
     $controler = Synctl::FileControler->new($deposit, $path . '/snapshots');

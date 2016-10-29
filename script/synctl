@@ -857,11 +857,9 @@ EOF
 
 sub version
 {
-    return <<'EOF';
-synctl 2.0.0
-Gauthier Voron
-gauthier.voron@mnesic.fr
-EOF
+    return sprintf("%s %s\n%s\n%s\n",
+		   'synctl', $Synctl::VERSION,
+		   $Synctl::AUTHOR, $Synctl::MAILTO);
 }
 
 sub main
