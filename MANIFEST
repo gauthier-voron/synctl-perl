@@ -24,11 +24,8 @@ t/SshSnapshot.t
 t/Synctl.t
 script/synctl
 lib/Synctl.pm
-lib/Synctl/Backend.pm
-lib/Synctl/Config.pm
 lib/Synctl/Controler.pm
 lib/Synctl/Deposit.pm
-lib/Synctl/FileBackend.pm
 lib/Synctl/FileControler.pm
 lib/Synctl/FileDeposit.pm
 lib/Synctl/FileSnapshot.pm
@@ -42,8 +39,6 @@ lib/Synctl/SshDeposit.pm
 lib/Synctl/SshProtocol.pm
 lib/Synctl/SshServer.pm
 lib/Synctl/SshSnapshot.pm
-lib/Synctl/Object.pm
-lib/Synctl/SshBackend.pm
 lib/Synctl/Verbose.pm
 examples/full-ssh
 examples/home-local
