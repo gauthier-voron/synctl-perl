@@ -4,28 +4,10 @@ use strict;
 use warnings;
 
 use Carp;
+use Encode;
+use POSIX qw(locale_h);
 
 use Synctl qw(:error :verbose);
-
-
-    # IFCREAT => 'Create file',         # path of the file created
-    # IFDELET => 'Delete file',         # path of the file deleted
-    # ILCREAT => 'Create link',         # path of the source, path of the dest
-    # IRGET   => 'Create reference',    # hash of the reference
-    # IRPUT   => 'Delete reference',    # hash of the reference
-    # ICSEND  => 'Send bytes',          # amount of sent bytes
-    # ICRECV  => 'Receive bytes',       # amount of received bytes
-    # ICONFIG => 'Use configuration',   # what is configured, at what value
-    # IRLOAD  => 'Load references',     # <nothing>
-    # IRDELET => 'Deleting references', # <nothing>
-    # IFCHECK => 'Check file',          # path of the file
-    # IFPROCS => 'Process file',        # path of the file
-    # IFSEND  => 'Send file',           # path of the file
-    # IFRECV  => 'Receive file',        # path of the file
-    # IREGEX  => 'Build regex',         # include/exclude, from, to
-    # INODMAP => 'Nodemap update',      # client/server, key, value
-    # IUMODE  => 'Unexpected mode',     # file, mode
-    # IUCONT  => 'Unexpected content',  # file, content
 
 
 sub __rw
@@ -56,6 +38,7 @@ sub __csent { return shift->__rw('__csent', @_); }
 sub __frecv { return shift->__rw('__frecv', @_); }
 sub __wrecv { return shift->__rw('__wrecv', @_); }
 sub __crecv { return shift->__rw('__crecv', @_); }
+sub __encoding { return shift->__rw('__encoding', @_); }
 
 
 sub new
@@ -71,6 +54,7 @@ sub new
     $self->__state('');
     $self->__progress_going(0);
     $self->__lastsetup(0);
+    $self->__encoding(setlocale(LC_CTYPE));
 
     $self->__first(0);
     $self->__last(0);
@@ -159,7 +143,7 @@ sub __format_bytes
 	}
     }
 
-    if ($suffix eq 'B') {
+    if ($suffix eq 'B' || $value >= 100) {
 	return sprintf("%d %s", $value, $suffix);
     } else {
 	return sprintf("%.1f %s", $value, $suffix);
@@ -181,7 +165,11 @@ sub __format_speed
 	}
     }
 
-    return sprintf("%.1f %s", $value, $suffix);
+    if ($value >= 100) {
+	return sprintf("%d %s", $value, $suffix);
+    } else {
+	return sprintf("%.1f %s", $value, $suffix);
+    }
 }
 
 
@@ -395,6 +383,7 @@ sub __notice_loading_references
 sub __notice_send_file
 {
     my ($self, $name) = @_;
+    my $encoding = $self->__encoding();
 
     $self->__end_progress('terminate');
 
@@ -404,12 +393,13 @@ sub __notice_send_file
     }
     
     $self->__fsent($self->__fsent() + 1);
-    $self->__start_progress($name);
+    $self->__start_progress(Encode::decode($encoding, $name));
 }
 
 sub __notice_receive_file
 {
     my ($self, $name) = @_;
+    my $encoding = $self->__encoding();
 
     $self->__end_progress('terminate');
 
@@ -419,14 +409,17 @@ sub __notice_receive_file
     }
 
     $self->__frecv($self->__frecv() + 1);
-    $self->__start_progress($name);
+    $self->__start_progress(Encode::decode($encoding, $name));
 }
 
 sub __notice_will_receive_content
 {
     my ($self, $amount) = @_;
 
-    $self->__wrecv($self->__wrecv() + 1);
+    if ($self->__state() eq 'receiving files') {
+	$self->__wrecv($self->__wrecv() + 1);
+    }
+
     $self->__progress_total($amount);
 }
 
