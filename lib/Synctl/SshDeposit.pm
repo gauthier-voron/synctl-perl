@@ -46,6 +46,17 @@ sub _init
     return $connection->recv();
 }
 
+sub _size
+{
+    my ($self) = @_;
+    my ($connection);
+
+    $connection = $self->__connection();
+    $connection->send('deposit_size');
+
+    return $connection->recv();
+}
+
 sub _hash
 {
     my ($self, $handler) = @_;

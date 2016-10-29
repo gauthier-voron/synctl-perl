@@ -93,6 +93,22 @@ sub path
 }
 
 
+sub _size
+{
+    my ($self) = @_;
+    my ($path, $size, $dh);
+
+    $path = $self->__path_object();
+    if (!opendir($dh, $path)) {
+	return throw(ESYS, $!);
+    }
+
+    $size = scalar(grep { /^[0-9a-f]{32}$/ } readdir($dh));
+
+    closedir($dh);
+    return $size;
+}
+
 sub _hash
 {
     my ($self, $handler) = @_;

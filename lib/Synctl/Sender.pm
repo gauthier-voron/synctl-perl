@@ -119,7 +119,7 @@ sub __send_link
 
     $ret = $deposit->get($hash);
     if (!defined($ret)) {
-	notify(INFO, IWSEND, $args{SIZE});
+	notify(DEBUG, IWSEND, $args{SIZE});
 	$ret = $deposit->send($content);
 	if ($ret ne $hash) {
 	    $deposit->put($ret);
@@ -160,7 +160,7 @@ sub __send_file
 	    return undef;
 	}
 
-	notify(INFO, IWSEND, $args{SIZE});
+	notify(DEBUG, IWSEND, $args{SIZE});
 
 	$ret = $deposit->send($fh);
 	close($fh);
@@ -197,6 +197,19 @@ sub __send_directory
     return 1;
 }
 
+sub __load_server_references
+{
+    my ($self, $hashlist) = @_;
+    my $size;
+
+    notify(INFO, IRLOAD);
+    
+    $size = $self->deposit()->size();
+    notify(DEBUG, IWRECV, $size * 32);
+    
+    return $self->deposit()->hash(sub { $hashlist->{shift()} = 1 });
+}
+
 sub send
 {
     my ($self, @err) = @_;
@@ -206,9 +219,9 @@ sub send
 	return throw(ESYNTAX, shift(@err));
     }
 
-    notify(INFO, IRLOAD);
-    $ret = $self->deposit()->hash(sub { $hashlist{shift()} = 1 });
-    if (!$ret) { return $ret; }
+    if (!($self->__load_server_references(\%hashlist))) {
+	return undef;
+    }
 
     $err = 0;
     $self->seeker()->seek(sub {

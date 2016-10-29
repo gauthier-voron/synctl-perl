@@ -55,6 +55,15 @@ sub __deposit_init
     $connection->send($deposit->init());
 }
 
+sub __deposit_size
+{
+    my ($self) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $connection = $self->__connection();
+
+    $connection->send($deposit->size());
+}
+
 sub __deposit_hash
 {
     my ($self) = @_;
@@ -227,6 +236,7 @@ sub serve
     my ($running, @args, $handler);
     my %handlers = (
 	'deposit_init'            => \&__deposit_init,
+	'deposit_size'            => \&__deposit_size,
 	'deposit_hash'            => \&__deposit_hash,
 	'deposit_get'             => \&__deposit_get,
 	'deposit_put'             => \&__deposit_put,

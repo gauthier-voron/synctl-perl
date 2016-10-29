@@ -378,17 +378,31 @@ sub __end_progress
 }
 
 
-sub __notice_send_file
+sub __notice_loading_references
 {
-    my ($self, $name) = @_;
+    my ($self) = @_;
 
-    if ($self->__state() ne 'send file') {
-	$self->__print_title('Sending files...');
-	$self->__state('send file');
+    if ($self->__state() ne 'preparing transfert') {
+	$self->__print_title('Preparing transfert...');
+	$self->__state('preparing transfert');
     } else {
 	$self->__end_progress('terminate');
     }
 
+    $self->__start_progress('Loading references');
+}
+
+sub __notice_send_file
+{
+    my ($self, $name) = @_;
+
+    $self->__end_progress('terminate');
+
+    if ($self->__state() ne 'sending files') {
+	$self->__print_title('Sending files...');
+	$self->__state('sending files');
+    }
+    
     $self->__fsent($self->__fsent() + 1);
     $self->__start_progress($name);
 }
@@ -397,11 +411,11 @@ sub __notice_receive_file
 {
     my ($self, $name) = @_;
 
-    if ($self->__state() ne 'receive file') {
+    $self->__end_progress('terminate');
+
+    if ($self->__state() ne 'receiving files') {
 	$self->__print_title('Receiving files...');
-	$self->__state('receive file');
-    } else {
-	$self->__end_progress('terminate');
+	$self->__state('receiving files');
     }
 
     $self->__frecv($self->__frecv() + 1);
@@ -462,6 +476,7 @@ sub notice
     my ($self, $level, $code, @hints) = @_;
     my ($now, $handler);
     my %handlers = (
+	IRLOAD() => \&__notice_loading_references,
 	IFRECV() => \&__notice_receive_file,
 	IFSEND() => \&__notice_send_file,
 	IWRECV() => \&__notice_will_receive_content,

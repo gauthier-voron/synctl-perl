@@ -34,6 +34,7 @@ sub new
 
 sub _init { confess('abstract method'); }
 sub _hash { confess('abstract method'); }
+sub _size { confess('abstract method'); }
 sub _get  { confess('abstract method'); }
 sub _put  { confess('abstract method'); }
 sub _send { confess('abstract method'); }
@@ -49,6 +50,17 @@ sub init
     }
     
     return $self->_init();
+}
+
+sub size
+{
+    my ($self, @err) = @_;
+
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    return $self->_size();
 }
 
 sub hash

@@ -34,6 +34,13 @@ sub path
     return $self->{'path'};
 }
 
+sub _size
+{
+    my ($self) = @_;
+
+    return scalar(keys(%{$self->{'content'}}));
+}
+
 sub _hash
 {
     my ($self, $output) = @_;
