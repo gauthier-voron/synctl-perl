@@ -77,7 +77,7 @@ sub snapshots
 	my ($self, $path, $ohandler, $ehandler) = @_;
 	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
 	my $fpath = $self->__path() . $path;
-	my @xattrs = split(/\n/, `getfattr --dump "$fpath"`);
+	my @xattrs = split(/\n/, `getfattr --dump "$fpath" 2>/dev/null`);
 	my $rsync;
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
@@ -110,7 +110,7 @@ sub snapshots
 	my $count = 0;
 
 	$dpath = $self->path() . $path;
-	my @xattrs = split(/\n/, `getfattr --dump "$dpath"`);
+	@xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
     
 	if ($path eq '/') {
 	    $sep = '';
@@ -180,7 +180,7 @@ sub convert
 	}
 
 	if ($sender->send() == 0) {
-	    ;
+	    system('rm', '-rf', $old);
 	}
     }
 
@@ -209,7 +209,7 @@ EOF
 sub version
 {
     return sprintf("%s %s\n%s\n%s\n",
-		   'synctl-convert', $Synctl::VERSION,
+		   'convert', $Synctl::VERSION,
 		   $Synctl::AUTHOR, $Synctl::MAILTO);
 }
 
