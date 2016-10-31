@@ -160,7 +160,7 @@ sub __seek_directory
     $ohandler->(%output);
     $count++;
 
-    foreach $entry (grep { ! /^\.\.?$/ } readdir($dh)) {
+    foreach $entry (sort { $a cmp $b } grep { ! /^\.\.?$/ } readdir($dh)) {
 	$count += $self->__seek($path . $sep . $entry, $ohandler, $ehandler);
     }
 
