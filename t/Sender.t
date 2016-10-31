@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use POSIX qw(getgid getuid);
-use Test::More tests => 22;
+use Test::More tests => 26;
 
 use t::File;
 use t::MockDeposit;
@@ -93,8 +93,8 @@ is_deeply($snapshot->{'content'}, {
     '/file4'      => $deposit_mapper->{""},
     '/dir0'       => [],
     '/dir0/file3' => $deposit_mapper->{"\n\n"},
-    '/dir0/link0' => $deposit_mapper->{"../file0"}
-	  }, 'send complete snapshot path content');
+    '/dir0/link0' => $deposit_mapper->{"../file0"} },
+	  'send complete snapshot path content');
 
 %hash = %{$snapshot->{'properties'}};
 foreach $path (keys(%hash)) {
@@ -185,6 +185,29 @@ is_deeply(\%hash, {
     '/dir0/file3' => { MODE => 0100644, USER => $uid, GROUP => $gid },
     '/dir0/link0' => { MODE => 0120777, USER => $uid, GROUP => $gid },
 	  }, 'send complete snapshot path content');
+
+
+$box = mktroot();
+$client = mktdir($box . '/client');
+mktdir($box . '/client/dir1', MODE => 0000);
+
+$deposit = t::MockDeposit->new('', {}, {}, $deposit_mapper);
+$snapshot = t::MockSnapshot->new({}, {});
+$seeker = Synctl::Seeker->new($client);
+$sender = Synctl::Sender->new($deposit, $snapshot, $seeker);
+
+is($sender->send(), 1, 'send corner case snapshot');
+
+is_deeply($deposit->{'content'}, {},
+	  'send corner case snapshot deposit content');
+
+is_deeply($deposit->{'reference'}, {},
+	  'send corner case snapshot deposit reference');
+
+is_deeply($snapshot->{'content'}, {
+    '/'           => [],
+    '/dir1'       => [] },
+	  'send corner case snapshot path content');
 
 
 1;

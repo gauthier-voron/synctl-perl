@@ -56,7 +56,7 @@ is($seeker->seek(\@list), 5, 'seek to list with filter');
 
 
 $seeker = Synctl::Seeker->new('/root');
-is($seeker->seek(\@list, \@elist), 0, 'seek /root to list with error list');
+is($seeker->seek(\@list, \@elist), 1, 'seek /root to list with error list');
 is(scalar(@elist), 1, 'seek /root to list gives 1 error');
 
 

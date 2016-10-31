@@ -152,13 +152,13 @@ sub __seek_directory
 	       GROUP => $group, MTIME => $mtime, INODE => $dev .':'. $inode,
 	       SIZE => $size);
 
+    $ohandler->(%output);
+    $count++;
+
     if (!opendir($dh, $dpath)) {
 	$ehandler->(%output);
 	return $count;
     }
-
-    $ohandler->(%output);
-    $count++;
 
     foreach $entry (sort { $a cmp $b } grep { ! /^\.\.?$/ } readdir($dh)) {
 	$count += $self->__seek($path . $sep . $entry, $ohandler, $ehandler);
