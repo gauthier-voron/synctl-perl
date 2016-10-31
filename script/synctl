@@ -1,6 +1,5 @@
 #!/usr/bin/perl -l
 
-use lib qw(/home/gauthier/Projets/perl-synctl/lib);
 use strict;
 use warnings;
 

@@ -27,7 +27,7 @@ sub __connection
 sub _init
 {
     my ($self, $connection, @err) = @_;
-    my $ack;
+    my ($ack, $cversion, $sversion);
 
     if (!defined($connection)) {
 	return throw(ESYNTAX, undef);
@@ -39,13 +39,16 @@ sub _init
 	return undef;
     }
 
-    if (!$connection->send('syn')) {
+    $cversion = $Synctl::VERSION;
+    if (!$connection->send('syn', $cversion)) {
 	return throw(EPROT, 'syn');
     } 
 
-    $ack = $connection->recv();
+    ($ack, $sversion) = $connection->recv();
     if (!defined($ack) || $ack ne 'ack') {
-	return throw(EPROT, 'ack');
+	return throw(EPROT, $ack || '<undef>');
+    } elsif (!defined($sversion) || $sversion ne $cversion) {
+	return throw(EPROT, $cversion, $sversion);
     }
 
     $self->__connection($connection);

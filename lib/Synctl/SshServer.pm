@@ -242,6 +242,19 @@ sub __delete
     $connection->send($controler->delete($snapshot));
 }
 
+sub __syn
+{
+    my ($self, $cversion) = @_;
+    my $sversion = $Synctl::VERSION;
+    my $connection = $self->__connection();
+
+    if (!defined($cversion) || $cversion ne $sversion) {
+	$connection->send('version', $sversion);
+    } else {
+	$connection->send('ack', $sversion);
+    }
+}
+
 
 sub serve
 {
@@ -265,7 +278,7 @@ sub serve
 	'snapshot'                => \&__snapshot,
 	'create'                  => \&__create,
 	'delete'                  => \&__delete,
-	'syn'                     => sub {$self->__connection()->send('ack')},
+	'syn'                     => \&__syn,
 	'exit'                    => sub { $running = 0 }
 	);
 

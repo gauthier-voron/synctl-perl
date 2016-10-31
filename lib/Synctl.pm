@@ -353,7 +353,7 @@ sub __ssh_controler
     my ($pid, $child_in, $child_out, $parent_in, $parent_out);
     my ($connection, $controler);
     my @lcommand = qw(ssh);
-    my @rcommand = qw(/home/gauthier/Projets/perl-synctl/script/synctl serve);
+    my @rcommand = qw(synctl serve);
 
     if (!defined($location)) {
 	return throw(ESYNTAX, undef);
@@ -510,7 +510,7 @@ sub send
 
     $sender = Synctl::Sender->new($controler->deposit(), $snapshot, $seeker);
     if (!defined($sender)) {
-	# $controler->delete($snapsot);
+	$controler->delete($snapshot);
 	return undef;
     }
 
@@ -609,32 +609,21 @@ Synctl - Make local or remote incremental backups
 
   use Synctl;
 
-  my $backend = Synctl::backend('/mnt/backup');
-  my $backend = Synctl::backend('file:///mnt/backup');
-  my $backend = Synctl::backend('ssh://backup@www.remote.net:/var/backup');
+  my $controler = Synctl::controler('/mnt/backup');
+  my $controler = Synctl::controler('file:///mnt/backup');
+  my $controler = Synctl::controler('ssh://backup@www.remote.net:/var/backup');
 
-  foreach my $backup ($backend->list()) {    # list every backups made at this
-      printf("%s\n", $backup);               #   server before
+  foreach my $snapshot ($controler->snapshot()) {
+      printf("%s %s\n", $snapshot->id(), $snapshot->date());
   }
 
-  $backend->client('/');           # set the root of files to backup
-  $backend->exclude('/mnt');       # ignore some files during the backup
-  $backend->dryrun(1);             # do not make any write on disk
-  $backend->verbose(1);            # explain what is going on
+  Synctl::send('/', $controler);
+  Synctl::send('/', $controler, sub { return $_[0] ne '/mnt' });
 
-  $backend->send();                # make a new backup
-  $backend->recv();                # recover from the last backup
-  $backend->recv('2016-03');       # recover from the last backup of March 2016
+  my @snapshots = sort { $b->date() cmp $a->date() } $controler->snapshot();
+  my $snapshot = $snapshots[0];
 
-  use Synctl::Config;
-
-  # Parse a configuration file named 'config-name' which can be found either in
-  # '~/.config/synctl' or in '~/.synctl'.
-
-  my $config = Synctl::Config->new('config-name', '~/.config/synctl',
-      '~/.synctl');
-
-  my $backend = $config->backend();
+  Synctl::recv($controler, $snapshot, '/tmp/restore');
 
 =head1 AUTHOR
 
