@@ -19,16 +19,30 @@ sub __path
     return $self->{'__path'};
 }
 
+sub __id
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__id'} = $value;
+    }
+
+    return $self->{'__id'};
+}
+
 
 sub _new
 {
-    my ($self, $path, @err) = @_;
+    my ($self, $path, $id, @err) = @_;
 
     if (@err) { confess('unexpected argument'); }
     if (!defined($path) || ref($path) ne '') { confess('invalid argument'); }
+    if (!defined($id) || ref($id) ne '') { confess('invalid argument'); }
     if (!defined($self->SUPER::_new())) { return undef; }
 
     $self->__path($path);
+    $self->__id($id);
+
     return $self;
 }
 
@@ -47,14 +61,11 @@ sub _init
 {
     my ($self) = @_;
     my $date = __now();
-    my $id = sprintf('%08x%08x%08x%08x',
-		     rand(1 << 32), rand(1 << 32),
-		     rand(1 << 32), rand(1 << 32));
 
-    if (defined($self->_date()))                   { return undef; }
-    if (!mkdir($self->__path()))                   { return undef; }
-    if (!mkdir($self->__path_property()))          { return undef; }
-    if (!defined($self->_date($date . '-' . $id))) { return undef; }
+    if (defined($self->_date()))          { return undef; }
+    if (!mkdir($self->__path()))          { return undef; }
+    if (!mkdir($self->__path_property())) { return undef; }
+    if (!defined($self->_date($date)))    { return undef; }
 
     return 1;
 }
@@ -86,6 +97,12 @@ sub path
     return $self->__path();
 }
 
+
+sub _id
+{
+    my ($self) = @_;
+    return $self->__id();
+}
 
 sub _date
 {

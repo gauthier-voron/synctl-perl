@@ -345,7 +345,7 @@ sub list_main
     my ($profile, $ndate, $path, $text, $controler, @snapshots, $snapshot);
     my ($Y, $m, $d, $H, $M, $S, $u);
 
-    $format = "%Y-%m-%d-%H-%M-%S-%u";
+    $format = "%u  %Y-%m-%d-%H-%M-%S";
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
@@ -424,9 +424,10 @@ sub list_main
     }
 
     foreach $snapshot (@snapshots) {
+	$u = $snapshot->id();
 	$snapshot->date() =~
-	    m|^(\d{4})-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(.*)$|;
-	($Y, $m, $d, $H, $M, $S, $u) = ($1, $2, $3, $4, $5, $6, $7);
+	    m|^(\d{4})-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(\d\d)$|;
+	($Y, $m, $d, $H, $M, $S) = ($1, $2, $3, $4, $5, $6);
 
 	$text = $format;
 	$text =~ s|(%%)*%Y|$Y|g;
@@ -561,7 +562,7 @@ is one of 'file' for a local server or 'ssh' for a remote server. If the
 protocol is 'file', than only the <path> may be specified.
 If both the client and server are specified by options, the profile may be
 omitted. If the snapshot is omitted, the newest snapshot of the server is used,
-otherwise it is a prefix of the expression 'YYYY-mm-dd-HH-MM-SS-u{32}'.
+otherwise it is a snapshot unique identifier.
 To omit the profile but specify the snapshot, the profile should be specified
 as the empty string.
 
@@ -603,7 +604,7 @@ EOF
 
 sub recv_main
 {
-    my ($profile_name, $snapshot_date, @err);
+    my ($profile_name, $snapshot_id, @err);
     my (@profile_paths, $client, $server, @filters);
     my ($profile, $controler, $ndate, $snapshot, @snapshots);
 
@@ -620,7 +621,7 @@ sub recv_main
 	);
     $SIG{__WARN__} = undef;
 
-    ($profile_name, $snapshot_date, @err) = @_;
+    ($profile_name, $snapshot_id, @err) = @_;
 
     if (@err) {
 	error("unexpected argument '" . shift(@err) . "'");
@@ -655,20 +656,15 @@ sub recv_main
 	error("no snapshot available");
     }
 
-    if (defined($snapshot_date)) {
-	if (substr($snapshot_date, 0, 1) ne '^') {
-	    $snapshot_date = '^' . $snapshot_date;
-	}
+    if (defined($snapshot_id)) {
+	@snapshots = grep { $_->id() =~ /^$snapshot_id/ } @snapshots;
 
-	foreach (@snapshots) {
-	    if ($_->date() =~ $snapshot_date) {
-		$snapshot = $_;
-		last;
-	    }
-	}
-
-	if (!defined($snapshot)) {
-	    error("no snapshot matching '$snapshot_date'");
+	if (scalar(@snapshots) == 0) {
+	    error("no snapshot matching '$snapshot_id'");
+	} elsif (scalar(@snapshots) > 1) {
+	    error("multiple snapshots matching '$snapshot_id'");
+	} else {
+	    $snapshot = shift(@snapshots);
 	}
     } else {
 	$snapshot = shift(@snapshots);
@@ -716,9 +712,9 @@ EOF
 
 sub rm_main
 {
-    my ($profile_name, @snapshot_dates);
+    my ($profile_name, @snapshot_ids);
     my (@profile_paths, $server, $force);
-    my ($profile, $controler, $date, @snapshots, %selection, $answer);
+    my ($profile, $controler, $id, @snapshots, %selection, $answer);
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
@@ -732,13 +728,13 @@ sub rm_main
     $SIG{__WARN__} = undef;
 
     if (defined($server)) {
-	(@snapshot_dates) = @_;
+	(@snapshot_ids) = @_;
 	$profile_name = '';
     } else {
-	($profile_name, @snapshot_dates) = @_;
+	($profile_name, @snapshot_ids) = @_;
     }
 
-    if (!@snapshot_dates) {
+    if (!@snapshot_ids) {
 	error('missing snapshot operand');
     }
 
@@ -758,14 +754,10 @@ sub rm_main
 	error('no snapshot available');
     }
 
-    foreach $date (@snapshot_dates) {
-	if (substr($date, 0, 1) ne '^') {
-	    $date = '^' . $date;
-	}
-
+    foreach $id (@snapshot_ids) {
 	foreach (@snapshots) {
-	    if ($_->date() =~ $date) {
-		$selection{$_->date()} = $_;
+	    if ($_->id() =~ /^$id/) {
+		$selection{$_->id()} = $_;
 	    }
 	}
     }
@@ -780,8 +772,8 @@ sub rm_main
 	}
     } else {
 	printf("Following snapshots will be removed:\n");
-	foreach (sort { $a cmp $b } map { $_->date() } values(%selection)) {
-	    printf("  %s\n", $_);
+	foreach (sort { $a->date() cmp $b->date() } values(%selection)) {
+	    printf("  %s  %s\n", $_->id(), $_->date());
 	}
 	printf("Are you sure [y/N] ? ");
 	$| = 1;

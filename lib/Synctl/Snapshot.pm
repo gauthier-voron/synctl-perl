@@ -28,6 +28,7 @@ sub new
 
 
 sub _init           { confess('abstract method'); }
+sub _id             { confess('abstract method'); }
 sub _date           { confess('abstract method'); }
 sub _set_file       { confess('abstract method'); }
 sub _set_directory  { confess('abstract method'); }
@@ -73,6 +74,14 @@ sub init
 
     if (@err) { confess('unexpected argument'); }
     return $self->_init();
+}
+
+sub id
+{
+    my ($self, @err) = @_;
+
+    if (@err) { confess('unexpected argument'); }
+    return $self->_id();
 }
 
 sub date

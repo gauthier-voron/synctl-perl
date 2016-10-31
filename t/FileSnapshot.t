@@ -16,8 +16,8 @@ BEGIN
 
 my $box = mktroot();
 my $path = $box . '/snapshot';
-my $snapshot = Synctl::FileSnapshot->new($path);
-my $eviltwin = Synctl::FileSnapshot->new($path);
+my $snapshot = Synctl::FileSnapshot->new($path, '0' x 32);
+my $eviltwin = Synctl::FileSnapshot->new($path, '0' x 32);
 
 
 ok($snapshot, 'snapshot instantiation');

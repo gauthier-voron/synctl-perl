@@ -21,36 +21,36 @@ sub __connection
     return $self->{'__connection'};
 }
 
-sub __date
+sub __id
 {
     my ($self, $value) = @_;
 
     if (defined($value)) {
-	$self->{'__date'} = $value;
+	$self->{'__id'} = $value;
     }
     
-    return $self->{'__date'};
+    return $self->{'__id'};
 }
 
 
 sub _new
 {
-    my ($self, $connection, $date, @err) = @_;
+    my ($self, $connection, $id, @err) = @_;
 
-    if (!defined($connection) || !defined($date)) {
+    if (!defined($connection) || !defined($id)) {
 	return throw(ESYNTAX, undef);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
     } elsif (!blessed($connection)||!$connection->isa('Synctl::SshProtocol')) {
 	return throw(EINVLD, $connection);
-    } elsif (ref($date) ne '') {
-	return throw(EINVLD, $date);
+    } elsif (ref($id) ne '') {
+	return throw(EINVLD, $id);
     } elsif (!defined($self->SUPER::_new())) {
 	return undef;
     }
 
     $self->__connection($connection);
-    $self->__date($date);
+    $self->__id($id);
     return $self;
 }
 
@@ -60,19 +60,29 @@ sub _init
     return undef;
 }
 
+sub _id
+{
+    my ($self) = @_;
+    return $self->__id();
+}
+
 sub _date
 {
     my ($self) = @_;
-    return $self->__date();
+    my $connection = $self->__connection();
+    my $id = $self->__id();
+
+    $connection->send('snapshot_date', $id);
+    return $connection->recv();
 }
 
 sub _set_file
 {
     my ($self, $path, $content, %args) = @_;
     my $connection = $self->__connection();
-    my $date = $self->__date();
+    my $id = $self->__id();
 
-    $connection->send('snapshot_set_file', $date, $path, $content, %args);
+    $connection->send('snapshot_set_file', $id, $path, $content, %args);
     return $connection->recv();
 }
 
@@ -80,9 +90,9 @@ sub _set_directory
 {
     my ($self, $path, %args) = @_;
     my $connection = $self->__connection();
-    my $date = $self->__date();
+    my $id = $self->__id();
 
-    $connection->send('snapshot_set_directory', $date, $path, %args);
+    $connection->send('snapshot_set_directory', $id, $path, %args);
     return $connection->recv();
 }
 
@@ -90,9 +100,9 @@ sub _get_file
 {
     my ($self, $path) = @_;
     my $connection = $self->__connection();
-    my $date = $self->__date();
+    my $id = $self->__id();
 
-    $connection->send('snapshot_get_file', $date, $path);
+    $connection->send('snapshot_get_file', $id, $path);
     return $connection->recv();
 }
 
@@ -100,9 +110,9 @@ sub _get_directory
 {
     my ($self, $path) = @_;
     my $connection = $self->__connection();
-    my $date = $self->__date();
+    my $id = $self->__id();
 
-    $connection->send('snapshot_get_directory', $date, $path);
+    $connection->send('snapshot_get_directory', $id, $path);
     return $connection->recv();
 }
 
@@ -110,9 +120,9 @@ sub _get_properties
 {
     my ($self, $path) = @_;
     my $connection = $self->__connection();
-    my $date = $self->__date();
+    my $id = $self->__id();
 
-    $connection->send('snapshot_get_properties', $date, $path);
+    $connection->send('snapshot_get_properties', $id, $path);
     return $connection->recv();
 }
 

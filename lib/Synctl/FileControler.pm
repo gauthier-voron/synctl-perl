@@ -63,7 +63,7 @@ sub deposit
 sub snapshot
 {
     my ($self, @err) = @_;
-    my ($root, @ret, $snapshot, $dh, $elem);
+    my ($root, @ret, $snapshot, $dh, $id);
 
     if (@err) { confess('unexpected argument'); }
 
@@ -73,8 +73,8 @@ sub snapshot
 	return undef;
     }
 
-    foreach $elem (readdir($dh)) {
-	$snapshot = Synctl::FileSnapshot->new($root . '/' . $elem);
+    foreach $id (grep { /^[0-9a-f]{32}$/ } readdir($dh)) {
+	$snapshot = Synctl::FileSnapshot->new($root . '/' . $id, $id);
 	
 	next if (!defined($snapshot->date()));
 	
@@ -88,24 +88,19 @@ sub snapshot
 sub create
 {
     my ($self, @err) = @_;
-    my ($date, $path, $root, $snapshot);
+    my ($date, $id, $root, $snapshot);
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
     }
 
-    $path = md5_hex(rand(1 << 32));
+    $id = md5_hex(rand(1 << 32));
 
     $root = $self->__snaproot();
-    $snapshot = Synctl::FileSnapshot->new($root . '/' . $path);
+    $snapshot = Synctl::FileSnapshot->new($root . '/' . $id, $id);
     $snapshot->init();
 
-    $date = $snapshot->date();
-    if (!rename($root . '/' . $path, $root . '/' . $date)) {
-	return throw(ESYS, $!);
-    } else {
-	return Synctl::FileSnapshot->new($root . '/' . $date);
-    }
+    return $snapshot;
 }
 
 

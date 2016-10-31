@@ -118,19 +118,33 @@ sub __deposit_recv
 
 sub __get_snapshot
 {
-    my ($self, $date) = @_;
+    my ($self, $id) = @_;
     my @snapshots = $self->__controler()->snapshot();
 
-    @snapshots = grep { $_->date() eq $date } @snapshots;
+    @snapshots = grep { $_->id() eq $id } @snapshots;
 
     if (scalar(@snapshots) == 0) { return undef; }
     return shift(@snapshots);
 }
 
+sub __snapshot_date
+{
+    my ($self, $id) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+    my $ret;
+
+    if (!defined($snapshot)) {
+	$connection->send(undef);
+    } else {
+	$connection->send($snapshot->date());
+    }
+}
+
 sub __snapshot_set_file
 {
-    my ($self, $date, $path, $content, %args) = @_;
-    my $snapshot = $self->__get_snapshot($date);
+    my ($self, $id, $path, $content, %args) = @_;
+    my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
     my $ret;
 
@@ -143,8 +157,8 @@ sub __snapshot_set_file
 
 sub __snapshot_set_directory
 {
-    my ($self, $date, $path, %args) = @_;
-    my $snapshot = $self->__get_snapshot($date);
+    my ($self, $id, $path, %args) = @_;
+    my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
     my $ret;
 
@@ -157,8 +171,8 @@ sub __snapshot_set_directory
 
 sub __snapshot_get_file
 {
-    my ($self, $date, $path) = @_;
-    my $snapshot = $self->__get_snapshot($date);
+    my ($self, $id, $path) = @_;
+    my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
     my $ret;
 
@@ -171,8 +185,8 @@ sub __snapshot_get_file
 
 sub __snapshot_get_directory
 {
-    my ($self, $date, $path) = @_;
-    my $snapshot = $self->__get_snapshot($date);
+    my ($self, $id, $path) = @_;
+    my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
     my $ret;
 
@@ -185,8 +199,8 @@ sub __snapshot_get_directory
 
 sub __snapshot_get_properties
 {
-    my ($self, $date, $path) = @_;
-    my $snapshot = $self->__get_snapshot($date);
+    my ($self, $id, $path) = @_;
+    my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
     my $ret;
 
@@ -203,9 +217,9 @@ sub __snapshot
     my ($self) = @_;
     my $controler = $self->__controler();
     my $connection = $self->__connection();
-    my @dates = map { $_->date() } $controler->snapshot();
+    my @ids = map { $_->id() } $controler->snapshot();
 
-    $connection->send(@dates);
+    $connection->send(@ids);
 }
 
 sub __create
@@ -215,13 +229,13 @@ sub __create
     my $connection = $self->__connection();
     my $snapshot = $controler->create();
 
-    $connection->send($snapshot->date());
+    $connection->send($snapshot->id());
 }
 
 sub __delete
 {
-    my ($self, $date) = @_;
-    my $snapshot = $self->__get_snapshot($date);
+    my ($self, $id) = @_;
+    my $snapshot = $self->__get_snapshot($id);
     my $controler = $self->__controler();
     my $connection = $self->__connection();
 
@@ -242,6 +256,7 @@ sub serve
 	'deposit_put'             => \&__deposit_put,
 	'deposit_send'            => \&__deposit_send,
 	'deposit_recv'            => \&__deposit_recv,
+	'snapshot_date'           => \&__snapshot_date,
 	'snapshot_set_file'       => \&__snapshot_set_file,
 	'snapshot_set_directory'  => \&__snapshot_set_directory,
 	'snapshot_get_file'       => \&__snapshot_get_file,

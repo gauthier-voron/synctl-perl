@@ -112,7 +112,7 @@ sub delete
     }
 
     $connection = $self->__connection();
-    $ret = $connection->send('delete', $snapshot->date());
+    $ret = $connection->send('delete', $snapshot->id());
 
     return $ret;
 }
