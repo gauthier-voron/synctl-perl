@@ -1,5 +1,16 @@
 Revision history for Perl extension Synctl.
 
+1.0.0  2016-11-01
+       - Complete change of the server format :
+         - not based on rsync anymore
+	 - improved file deduplication
+	 - pre-computed checksums stored on server
+	 - no more need for xattrs on server
+       - No more support for xattrs backup
+       - No more support for ACL backup
+       - Exclusion filters can be perl regex
+       - Pretty printer
+
 0.1.0  2016-04-08
        - Only backup related functionalities :
          - list the backups of the server

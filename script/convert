@@ -1,0 +1,268 @@
+#!/usr/bin/perl -l
+
+use strict;
+use warnings;
+
+use Getopt::Long qw(GetOptionsFromArray);
+
+use Synctl;
+
+
+my $PROGRAM  = 'convert';
+
+
+sub error
+{
+    my ($message, $exitcode) = @_;
+
+    if (!defined($message)) {
+	$message = 'undefined error';
+    }
+    if (!defined($exitcode)) {
+	$exitcode = 255;
+    }
+
+    printf(STDERR "%s: %s\n", $PROGRAM, $message);
+    printf(STDERR "Please type '%s --help' for more information\n", $PROGRAM);
+
+    exit ($exitcode);
+}
+
+sub opterr
+{
+    my ($message) = @_;
+
+    if ($message =~ /^Unknown option: (.*)$/) {
+	error("unknown option '$1'");
+    }
+
+    printf(STDERR "%s", $message);
+}
+
+sub syncerr
+{
+    my ($code, $message) = @_;
+
+    $code = lc($code);
+    error("$code '$message'");
+}
+
+
+sub snapshots
+{
+    my ($source) = @_;
+    my @snapshots;
+    my $dh;
+
+    if (!opendir($dh, $source)) {
+	error("cannot open '$source'");
+    }
+
+    @snapshots = readdir($dh);
+    @snapshots = grep { /^\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d$/ } @snapshots;
+    @snapshots = map { $source . '/' . $_ } @snapshots;
+    
+    closedir($dh);
+    
+    return @snapshots;
+}
+
+{
+    package Converter;
+
+    use parent qw(Synctl::Seeker);
+
+    sub __seek_file
+    {
+	my ($self, $path, $ohandler, $ehandler) = @_;
+	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
+	my $fpath = $self->__path() . $path;
+	my @xattrs = split(/\n/, `getfattr --dump "$fpath" 2>/dev/null`);
+	my $rsync;
+
+	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
+	if (@xattrs) {
+	    $rsync = shift(@xattrs);
+	} else {
+	    $rsync = 0;
+	}
+	
+	($dev, $inode, $mode, $user, $group, $size, $mtime) =
+	    (stat($fpath))[0, 1, 2, 4, 5, 7, 9];
+
+	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
+	    ($mode, $user, $group) = (oct($1), $2, $3);
+	}
+
+	$ohandler->(NAME => $path, PATH => $fpath, MODE => $mode,
+		    USER => $user, GROUP => $group, MTIME => $mtime,
+		    INODE => $dev .':'. $inode, SIZE => $size);
+	
+	return 1;
+    };
+
+    sub __seek_directory
+    {
+	my ($self, $path, $ohandler, $ehandler) = @_;
+	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
+	my ($dpath, $dh, $entry, $sep, %output);
+	my (@xattrs, $rsync);
+	my $count = 0;
+
+	$dpath = $self->path() . $path;
+	@xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
+    
+	if ($path eq '/') {
+	    $sep = '';
+	} else {
+	    $sep = '/';
+	}
+
+	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
+	if (@xattrs) {
+	    $rsync = shift(@xattrs);
+	} else {
+	    $rsync = 0;
+	}
+	
+	($dev, $inode, $mode, $user, $group, $size, $mtime) =
+	    (stat($dpath))[0, 1, 2, 4, 5, 7, 9];
+	
+	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
+	    ($mode, $user, $group) = (oct($1), $2, $3);
+	}
+	
+	%output = (NAME => $path, PATH => $dpath, MODE => $mode, USER => $user,
+		   GROUP => $group, MTIME => $mtime,
+		   INODE => $dev .':'. $inode, SIZE => $size);
+
+	if (!opendir($dh, $dpath)) {
+	    $ehandler->(%output);
+	    return $count;
+	}
+
+	$ohandler->(%output);
+	$count++;
+
+	foreach $entry (sort { $a cmp $b } grep { ! /^\.\.?$/ } readdir($dh)) {
+	    $count += $self->__seek($path . $sep . $entry,
+				    $ohandler, $ehandler);
+	}
+
+	closedir($dh);
+	return $count;
+    }
+}
+
+sub convert
+{
+    my ($source, $controler, $preserve) = @_;
+    my @snapshots = snapshots($source);
+    my ($old, $new, $date, $seeker);
+    my ($sender);
+
+    foreach $old (@snapshots) {
+	$date = $old;
+	$date =~ s|^.*/([^/]+)$|$1|;
+	
+	$new = $controler->create();
+	$new->_date($date);
+
+	$seeker = Converter->new($old);
+	if (!defined($seeker)) {
+	    return undef;
+	}
+	
+	$sender = Synctl::Sender->new($controler->deposit(), $new, $seeker);
+	if (!defined($sender)) {
+	    $controler->delete($new);
+	    return undef;
+	}
+
+	if ($sender->send() == 0 && !$preserve) {
+	    system('rm', '-rf', $old);
+	}
+    }
+
+    return 0;
+}
+
+
+sub usage
+{
+    return <<"EOF"
+Usage: $PROGRAM [-h | --help] [-V | --version] [-v | --verbose] <source>
+       <destination>
+
+Convert a <source> synctl server from an old version to the new one stored in
+the specified <destination>. The operation is destructive : the converted
+files are removed during the process to avoid over quotas. However, files are
+only removed once a valid conversion has been done.
+
+Options:
+  -h, --help             Print this help message and exit.
+  -V, --version          Print the version information and exit.
+  -v, --verbose          Explain what is done.
+  -p, --preserve         Do not delete old snapshots once converted.
+EOF
+}
+
+sub version
+{
+    return sprintf("%s %s\n%s\n%s\n",
+		   'convert', $Synctl::VERSION,
+		   $Synctl::AUTHOR, $Synctl::MAILTO);
+}
+
+
+sub main
+{
+    my ($source, $target, @err);
+    my ($verbose, $preserve, $controler, $dh);
+    
+    $PROGRAM = $0;
+    $PROGRAM =~ s|^.*/||;
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('bundling');
+    Getopt::Long::Configure('require_order');
+    GetOptionsFromArray(
+	\@_,
+	'h|help'     => sub { printf("%s", usage()); exit (0); },
+	'V|version'  => sub { printf("%s", version()); exit (0); },
+	'v|verbose'  => \$verbose,
+	'p|preserve' => \$preserve
+	);
+    $SIG{__WARN__} = undef;
+
+    ($source, $target, @err) = @_;
+    if (!defined($source)) {
+	error('missing source operand');
+    } elsif (!defined($target)) {
+	error('missing target operand');
+    } elsif (@err) {
+	error("unexpected operand '" . shift(@err) . "'");
+    }
+
+    Synctl::Configure(ERROR => sub {});
+    
+    if (!defined($controler = Synctl::controler($target))) {
+	if (!defined($controler = Synctl::init($target))) {
+	    error("invalid target operand : '$target'");
+	}
+    }
+
+    if ($verbose) {
+	Synctl::Configure(VERBOSE => Synctl::synthetic());
+    }
+    
+    Synctl::Configure(ERROR => \&syncerr);
+    return convert($source, $controler, $preserve);
+}
+
+
+exit (main(@ARGV));
+
+
+1;
+__END__
