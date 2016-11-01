@@ -1,12 +1,28 @@
-Synctl version 0.1.0
+Synctl version 1.0.0
 ====================
 
-The Synctl module is an rsync based incremental backup tool. The way it make
-backups is controlled by configuration files (profiles), allowing to backup
-different parts of your computer with different parameters.
+Backup and restore your files locally or through ssh with the perl Synctl
+module and the front-end synctl program. The backups are made incrementally
+with internal file deduplication and checksum verification.
 
-This module is provided with the synctl executable which you can use to list,
-make and restore backups from the command line.
+While this tool was initially based on rsync, it now uses its own protocol
+which allows several interesting features :
+
+  * Path-agnostic deduplication : while incremental backups can be performed
+    with rsync, the action of renaming or moving a file prevent rsync to
+    perform deduplication. Synctl stores the content of the files independently
+    of their path, which allows to optimize disk space more aggressively.
+
+  * Pre-computed checksums : to safely compare client and server files, rsync
+    compute the checksums of the files in both sides, stressing the I/O system
+    of the server. Synctl computes the checksum of each file when they are
+    received the first time and reuse these same checksums the next time.
+
+  * Reduced FS requirements : acting as root or connecting as root through ssh
+    is security issue, so rsync allows to make backups as a fake super user by
+    storing files mode and ownership as xattrs, which is not supported by all
+    filesystems. Synctl only require to create, modify and delete files and
+    directories.
 
 INSTALLATION
 
@@ -21,7 +37,6 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-  rsync        (only for client)
   openssh
   
 COPYRIGHT AND LICENCE
