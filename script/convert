@@ -156,7 +156,7 @@ sub snapshots
 
 sub convert
 {
-    my ($source, $controler) = @_;
+    my ($source, $controler, $preserve) = @_;
     my @snapshots = snapshots($source);
     my ($old, $new, $date, $seeker);
     my ($sender);
@@ -179,7 +179,7 @@ sub convert
 	    return undef;
 	}
 
-	if ($sender->send() == 0) {
+	if ($sender->send() == 0 && !$preserve) {
 	    system('rm', '-rf', $old);
 	}
     }
@@ -203,6 +203,7 @@ Options:
   -h, --help             Print this help message and exit.
   -V, --version          Print the version information and exit.
   -v, --verbose          Explain what is done.
+  -p, --preserve         Do not delete old snapshots once converted.
 EOF
 }
 
@@ -217,7 +218,7 @@ sub version
 sub main
 {
     my ($source, $target, @err);
-    my ($verbose, $controler, $dh);
+    my ($verbose, $preserve, $controler, $dh);
     
     $PROGRAM = $0;
     $PROGRAM =~ s|^.*/||;
@@ -229,7 +230,8 @@ sub main
 	\@_,
 	'h|help'     => sub { printf("%s", usage()); exit (0); },
 	'V|version'  => sub { printf("%s", version()); exit (0); },
-	'v|verbose'  => \$verbose
+	'v|verbose'  => \$verbose,
+	'p|preserve' => \$preserve
 	);
     $SIG{__WARN__} = undef;
 
@@ -255,7 +257,7 @@ sub main
     }
     
     Synctl::Configure(ERROR => \&syncerr);
-    return convert($source, $controler);
+    return convert($source, $controler, $preserve);
 }
 
 
