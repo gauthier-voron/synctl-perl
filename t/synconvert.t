@@ -48,6 +48,12 @@ utime(0, 4, $box . '/origin');
 system('rsync', '-aAHXc', '--fake-super', $box . '/origin/',
        $box . '/rsync/2015-07-02-13-58-01');
 
+# Create fake rsync xattrs
+system('setfattr', $box . '/rsync/2015-07-02-13-58-01/file1',
+       '-n', 'user.rsync.%stat', '-v', "100700 0,0 0:10");
+system('setfattr', $box . '/rsync/2015-07-02-13-58-01/dir0',
+       '-n', 'user.rsync.%stat', '-v', "40755 0,0 0:0");
+
 # Create origin version 2
 system('rm', $box . '/origin/hlink0');
 system('rm', $box . '/origin/link0');
@@ -81,11 +87,11 @@ is($snapshot->date(), '2015-07-02-13-58-01', 'date of first snapshot');
     '/'       => { USER => $uid, GROUP => $gid, MTIME => 4, MODE =>  040755 },
     '/file0'  => { USER => $uid, GROUP => $gid, MTIME => 1, MODE => 0100644,
 		   SIZE => 0},
-    '/file1'  => { USER => $uid, GROUP => $gid, MTIME => 1, MODE => 0100644,
+    '/file1'  => { USER =>    0, GROUP =>   10, MTIME => 1, MODE => 0100700,
 		   SIZE => 5 },
     '/file2'  => { USER => $uid, GROUP => $gid, MTIME => 2, MODE => 0100755,
 		   SIZE => 0 },
-    '/dir0'   => { USER => $uid, GROUP => $gid, MTIME => 3, MODE =>  040755 },
+    '/dir0'   => { USER =>    0, GROUP =>    0, MTIME => 3, MODE =>  040755 },
     '/dir0/file0' => { USER => $uid, GROUP => $gid, MTIME => 3,
 		       MODE => 0100644, SIZE => 0 },
     '/dir0/link0' => { USER => $uid, GROUP => $gid, MODE => 0120777,
@@ -102,9 +108,10 @@ is($snapshot->date(), '2015-07-02-13-58-01', 'date of first snapshot');
 		   SIZE => 0 },
     );
 foreach $path (sort { $a cmp $b } keys(%properties)) {
-    $props = { %{$snapshot->get_properties($path)} };
+    $props = $snapshot->get_properties($path);
     ok($props, "file '$path' exists");
 
+    $props = { %$props };
     delete($props->{INODE});
     if ($path =~ m|/link|) {
 	delete($props->{MTIME});

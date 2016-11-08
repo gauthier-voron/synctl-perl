@@ -116,7 +116,7 @@ sub snapshots
 
 	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
 	    ($mode, $user, $group) = (oct($1), $2, $3);
-	    return $self->SUPER::__seek_file($path, sub {
+	    return $self->SUPER::__seek_directory($path, sub {
 		my (%args) = @_;
 		if ($args{PATH} eq $dpath) {
 		    $args{MODE} = $mode;
