@@ -8,7 +8,7 @@ use Getopt::Long qw(GetOptionsFromArray);
 use Synctl;
 
 
-my $PROGRAM  = 'convert';
+my $PROGRAM  = 'synconvert';
 
 
 sub error
@@ -210,7 +210,7 @@ EOF
 sub version
 {
     return sprintf("%s %s\n%s\n%s\n",
-		   'convert', $Synctl::VERSION,
+		   'synconvert', $Synctl::VERSION,
 		   $Synctl::AUTHOR, $Synctl::MAILTO);
 }
 
