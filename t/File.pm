@@ -16,7 +16,11 @@ our @EXPORT = ('mktroot', 'mktfile', 'mktdir', 'mktlink',
 sub mktroot
 {
     my (%args) = @_;
-    my $root = tempdir('troot.XXXXXX', TMPDIR => 1, CLEANUP => 1);
+    my ($root, $temp);
+
+    $temp = !$args{NOTMP};
+
+    $root = tempdir('troot.XXXXXX', TMPDIR => $temp, CLEANUP => 1);
 
     return $root;
 }
@@ -38,6 +42,10 @@ sub mktfile
 	chmod($value, $path);
     }
 
+    if (defined($value = $args{'TIME'})) {
+	utime(0, $value, $path);
+    }
+
     return $path;
 }
 
@@ -50,6 +58,10 @@ sub mktdir
 
     if (defined($value = $args{'MODE'})) {
 	chmod($value, $path);
+    }
+
+    if (defined($value = $args{'TIME'})) {
+	utime(0, $value, $path);
     }
 
     return $path;
