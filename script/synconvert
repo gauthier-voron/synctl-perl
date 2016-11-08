@@ -75,10 +75,9 @@ sub snapshots
     sub __seek_file
     {
 	my ($self, $path, $ohandler, $ehandler) = @_;
-	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
 	my $fpath = $self->__path() . $path;
 	my @xattrs = split(/\n/, `getfattr --dump "$fpath" 2>/dev/null`);
-	my $rsync;
+	my ($rsync, $mode, $user, $group);
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
 	if (@xattrs) {
@@ -86,37 +85,27 @@ sub snapshots
 	} else {
 	    $rsync = 0;
 	}
-	
-	($dev, $inode, $mode, $user, $group, $size, $mtime) =
-	    (stat($fpath))[0, 1, 2, 4, 5, 7, 9];
 
 	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
 	    ($mode, $user, $group) = (oct($1), $2, $3);
+	    return $self->SUPER::__seek_file($path, sub {
+		my (%args) = @_;
+		$args{MODE} = $mode;
+		$args{USER} = $user;
+		$args{GROUP} = $group;
+		return $ohandler->(%args);
+	    }, $ehandler);
 	}
 
-	$ohandler->(NAME => $path, PATH => $fpath, MODE => $mode,
-		    USER => $user, GROUP => $group, MTIME => $mtime,
-		    INODE => $dev .':'. $inode, SIZE => $size);
-	
-	return 1;
-    };
+	return $self->SUPER::__seek_file($path, $ohandler, $ehandler);
+    }
 
     sub __seek_directory
     {
 	my ($self, $path, $ohandler, $ehandler) = @_;
-	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
-	my ($dpath, $dh, $entry, $sep, %output);
-	my (@xattrs, $rsync);
-	my $count = 0;
-
-	$dpath = $self->path() . $path;
-	@xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
-    
-	if ($path eq '/') {
-	    $sep = '';
-	} else {
-	    $sep = '/';
-	}
+	my $dpath = $self->__path() . $path;
+	my @xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
+	my ($rsync, $mode, $user, $group);
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
 	if (@xattrs) {
@@ -124,33 +113,21 @@ sub snapshots
 	} else {
 	    $rsync = 0;
 	}
-	
-	($dev, $inode, $mode, $user, $group, $size, $mtime) =
-	    (stat($dpath))[0, 1, 2, 4, 5, 7, 9];
-	
+
 	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
 	    ($mode, $user, $group) = (oct($1), $2, $3);
-	}
-	
-	%output = (NAME => $path, PATH => $dpath, MODE => $mode, USER => $user,
-		   GROUP => $group, MTIME => $mtime,
-		   INODE => $dev .':'. $inode, SIZE => $size);
-
-	if (!opendir($dh, $dpath)) {
-	    $ehandler->(%output);
-	    return $count;
-	}
-
-	$ohandler->(%output);
-	$count++;
-
-	foreach $entry (sort { $a cmp $b } grep { ! /^\.\.?$/ } readdir($dh)) {
-	    $count += $self->__seek($path . $sep . $entry,
-				    $ohandler, $ehandler);
+	    return $self->SUPER::__seek_file($path, sub {
+		my (%args) = @_;
+		if ($args{PATH} eq $dpath) {
+		    $args{MODE} = $mode;
+		    $args{USER} = $user;
+		    $args{GROUP} = $group;
+		}
+		return $ohandler->(%args);
+	    }, $ehandler);
 	}
 
-	closedir($dh);
-	return $count;
+	return $self->SUPER::__seek_directory($path, $ohandler, $ehandler);
     }
 }
 
