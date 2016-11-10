@@ -1,5 +1,12 @@
 Revision history for Perl extension Synctl.
 
+1.0.1  2016-11-10
+       - Rename convert script to synconvert
+       - Add synconvert to the installation
+         - Fix minor bugs
+	 - Slightly improve performance
+	 - Add tests
+
 1.0.0  2016-11-01
        - Complete change of the server format :
          - not based on rsync anymore
