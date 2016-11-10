@@ -6,7 +6,7 @@ WriteMakefile(
     VERSION_FROM      => 'lib/Synctl.pm',
     PREREQ_PM         => {},
     ABSTRACT_FROM     => 'lib/Synctl.pm',
-    EXE_FILES         => [ 'script/synctl' ],
+    EXE_FILES         => [ 'script/synctl' , 'script/synconvert' ],
     AUTHOR            => 'Gauthier Voron <gauthier@mnesic.fr>',
     LICENSE           => 'gpl',
 );

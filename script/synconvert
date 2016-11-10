@@ -8,7 +8,7 @@ use Getopt::Long qw(GetOptionsFromArray);
 use Synctl;
 
 
-my $PROGRAM  = 'convert';
+my $PROGRAM  = 'synconvert';
 
 
 sub error
@@ -75,10 +75,9 @@ sub snapshots
     sub __seek_file
     {
 	my ($self, $path, $ohandler, $ehandler) = @_;
-	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
 	my $fpath = $self->__path() . $path;
 	my @xattrs = split(/\n/, `getfattr --dump "$fpath" 2>/dev/null`);
-	my $rsync;
+	my ($rsync, $mode, $user, $group);
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
 	if (@xattrs) {
@@ -86,37 +85,27 @@ sub snapshots
 	} else {
 	    $rsync = 0;
 	}
-	
-	($dev, $inode, $mode, $user, $group, $size, $mtime) =
-	    (stat($fpath))[0, 1, 2, 4, 5, 7, 9];
 
 	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
 	    ($mode, $user, $group) = (oct($1), $2, $3);
+	    return $self->SUPER::__seek_file($path, sub {
+		my (%args) = @_;
+		$args{MODE} = $mode;
+		$args{USER} = $user;
+		$args{GROUP} = $group;
+		return $ohandler->(%args);
+	    }, $ehandler);
 	}
 
-	$ohandler->(NAME => $path, PATH => $fpath, MODE => $mode,
-		    USER => $user, GROUP => $group, MTIME => $mtime,
-		    INODE => $dev .':'. $inode, SIZE => $size);
-	
-	return 1;
-    };
+	return $self->SUPER::__seek_file($path, $ohandler, $ehandler);
+    }
 
     sub __seek_directory
     {
 	my ($self, $path, $ohandler, $ehandler) = @_;
-	my ($dev, $inode, $mode, $user, $group, $size, $mtime);
-	my ($dpath, $dh, $entry, $sep, %output);
-	my (@xattrs, $rsync);
-	my $count = 0;
-
-	$dpath = $self->path() . $path;
-	@xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
-    
-	if ($path eq '/') {
-	    $sep = '';
-	} else {
-	    $sep = '/';
-	}
+	my $dpath = $self->__path() . $path;
+	my @xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
+	my ($rsync, $mode, $user, $group);
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
 	if (@xattrs) {
@@ -124,33 +113,136 @@ sub snapshots
 	} else {
 	    $rsync = 0;
 	}
-	
-	($dev, $inode, $mode, $user, $group, $size, $mtime) =
-	    (stat($dpath))[0, 1, 2, 4, 5, 7, 9];
-	
+
 	if ($rsync =~ /^user.rsync.%stat="(\d+) \d+,\d+ (\d+):(\d+)"$/) {
 	    ($mode, $user, $group) = (oct($1), $2, $3);
-	}
-	
-	%output = (NAME => $path, PATH => $dpath, MODE => $mode, USER => $user,
-		   GROUP => $group, MTIME => $mtime,
-		   INODE => $dev .':'. $inode, SIZE => $size);
-
-	if (!opendir($dh, $dpath)) {
-	    $ehandler->(%output);
-	    return $count;
-	}
-
-	$ohandler->(%output);
-	$count++;
-
-	foreach $entry (sort { $a cmp $b } grep { ! /^\.\.?$/ } readdir($dh)) {
-	    $count += $self->__seek($path . $sep . $entry,
-				    $ohandler, $ehandler);
+	    return $self->SUPER::__seek_directory($path, sub {
+		my (%args) = @_;
+		if ($args{PATH} eq $dpath) {
+		    $args{MODE} = $mode;
+		    $args{USER} = $user;
+		    $args{GROUP} = $group;
+		}
+		return $ohandler->(%args);
+	    }, $ehandler);
 	}
 
-	closedir($dh);
-	return $count;
+	return $self->SUPER::__seek_directory($path, $ohandler, $ehandler);
+    }
+}
+
+{
+    package ProxySnapshot;
+
+    use parent qw(Synctl::Snapshot);
+
+    sub __intern
+    {
+	my ($self, $value) = @_;
+
+	if (defined($value)) {
+	    $self->{'__intern'} = $value;
+	}
+
+	return $self->{'__intern'};
+    }
+
+    sub __hashbase
+    {
+	my ($self, $value) = @_;
+
+	if (defined($value)) {
+	    $self->{'__hashbase'} = $value;
+	}
+
+	return $self->{'__hashbase'};
+    }
+
+    sub _new
+    {
+	my ($self, $intern, $hashbase) = @_;
+
+	$self->__intern($intern);
+	$self->__hashbase($hashbase);
+
+	return $self;
+    }
+
+    sub _init           { return shift()->__intern()->_init(@_);           }
+    sub _id             { return shift()->__intern()->_id(@_);             }
+    sub _date           { return shift()->__intern()->_date(@_);           }
+    sub _set_directory  { return shift()->__intern()->_set_directory(@_);  }
+    sub _get_file       { return shift()->__intern()->_get_file(@_);       }
+    sub _get_directory  { return shift()->__intern()->_get_directory(@_);  }
+    sub _get_properties { return shift()->__intern()->_get_properties(@_); }
+
+    sub _set_file
+    {
+	my ($self, $name, $hash, %props) = @_;
+	my $hb = $self->__hashbase();
+
+	$hb->{$props{INODE}} = { HASH => $hash, PROPS => { %props } };
+
+	return $self->__intern()->_set_file($name, $hash, %props);
+    }
+}
+
+{
+    package ProxySender;
+
+    use parent qw(Synctl::Sender);
+
+    sub __hashbase
+    {
+	my ($self, $value) = @_;
+
+	if (defined($value)) {
+	    $self->{'__hashbase'} = $value;
+	}
+
+	return $self->{'__hashbase'};
+    }
+
+    sub _new
+    {
+	my ($self, @args) = @_;
+	my $hashbase = pop(@args);
+
+	if (!defined($self->SUPER::_new(@args))) {
+	    return undef;
+	}
+
+	$self->__hashbase($hashbase);
+	$self->__snapshot(ProxySnapshot->new($self->snapshot(), $hashbase));
+
+	return $self;
+    }
+
+    sub __send_file
+    {
+	my ($self, %args) = @_;
+	my $inode = $args{INODE};
+	my ($memory, $props, $hash);
+	my ($deposit, $snapshot);
+
+	$memory = $self->__hashbase()->{$inode};
+	if (!defined($memory)) {
+	    return $self->SUPER::__send_file(%args);
+	} else {
+	    $deposit = $self->deposit();
+	    $snapshot = $self->snapshot();
+
+	    $props = $memory->{PROPS};
+	    $hash = $memory->{HASH};
+
+	    $deposit->get($hash);
+	    if (!$snapshot->set_file($args{NAME}, $hash, %$props)) {
+		$deposit->put($hash);
+		return undef;
+	    }
+
+	    return 1;
+	}
     }
 }
 
@@ -159,11 +251,17 @@ sub convert
     my ($source, $controler, $preserve) = @_;
     my @snapshots = snapshots($source);
     my ($old, $new, $date, $seeker);
-    my ($sender);
+    my ($sender, $hb);
+
+    $hb = {};
 
     foreach $old (@snapshots) {
 	$date = $old;
 	$date =~ s|^.*/([^/]+)$|$1|;
+
+	if (grep { $_->date() eq $date } $controler->snapshot()) {
+	    next;
+	}
 	
 	$new = $controler->create();
 	$new->_date($date);
@@ -173,7 +271,7 @@ sub convert
 	    return undef;
 	}
 	
-	$sender = Synctl::Sender->new($controler->deposit(), $new, $seeker);
+	$sender = ProxySender->new($controler->deposit(), $new, $seeker, $hb);
 	if (!defined($sender)) {
 	    $controler->delete($new);
 	    return undef;
@@ -210,7 +308,7 @@ EOF
 sub version
 {
     return sprintf("%s %s\n%s\n%s\n",
-		   'convert', $Synctl::VERSION,
+		   'synconvert', $Synctl::VERSION,
 		   $Synctl::AUTHOR, $Synctl::MAILTO);
 }
 
