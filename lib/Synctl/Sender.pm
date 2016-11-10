@@ -45,10 +45,9 @@ sub __seeker
 }
 
 
-sub new
+sub _new
 {
-    my ($class, $deposit, $snapshot, $seeker, @err) = @_;
-    my $self;
+    my ($self, $deposit, $snapshot, $seeker, @err) = @_;
 
     if (!defined($deposit) || !defined($snapshot) || !defined($seeker)) {
 	return throw(ESYNTAX, undef);
@@ -62,10 +61,20 @@ sub new
 	return throw(ESYNTAX, shift(@err));
     }
 
-    $self = bless({}, $class);
     $self->__deposit($deposit);
     $self->__snapshot($snapshot);
     $self->__seeker($seeker);
+
+    return $self;
+}
+
+sub new
+{
+    my ($class, @args) = @_;
+    my $self;
+
+    $self = bless({}, $class);
+    $self = $self->_new(@args);
 
     return $self;
 }

@@ -22,8 +22,9 @@ t/SshProtocol.t
 t/SshServer.t
 t/SshSnapshot.t
 t/Synctl.t
+t/synconvert.t
 script/synctl
-script/convert
+script/synconvert
 lib/Synctl.pm
 lib/Synctl/Controler.pm
 lib/Synctl/Deposit.pm
