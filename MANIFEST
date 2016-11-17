@@ -16,6 +16,7 @@ t/Receiver.t
 t/Seeker.t
 t/Sender.t
 t/Snapshot.pm
+t/SshConnection.t
 t/SshControler.t
 t/SshDeposit.t
 t/SshProtocol.t
@@ -36,6 +37,7 @@ lib/Synctl/Receiver.pm
 lib/Synctl/Seeker.pm
 lib/Synctl/Sender.pm
 lib/Synctl/Snapshot.pm
+lib/Synctl/SshConnection.pm
 lib/Synctl/SshControler.pm
 lib/Synctl/SshDeposit.pm
 lib/Synctl/SshProtocol.pm
