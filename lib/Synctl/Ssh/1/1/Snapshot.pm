@@ -1,4 +1,4 @@
-package Synctl::SshSnapshot;
+package Synctl::Ssh::1::1::Snapshot;
 
 use parent qw(Synctl::Snapshot);
 use strict;
@@ -41,7 +41,8 @@ sub _new
 	return throw(ESYNTAX, undef);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
-    } elsif (!blessed($connection)||!$connection->isa('Synctl::SshProtocol')) {
+    } elsif (!blessed($connection) ||
+	     !$connection->isa('Synctl::Ssh::1::1::Connection')) {
 	return throw(EINVLD, $connection);
     } elsif (ref($id) ne '') {
 	return throw(EINVLD, $id);
@@ -51,6 +52,7 @@ sub _new
 
     $self->__connection($connection);
     $self->__id($id);
+    
     return $self;
 }
 
@@ -72,8 +74,7 @@ sub _date
     my $connection = $self->__connection();
     my $id = $self->__id();
 
-    $connection->send('snapshot_date', $id);
-    return $connection->recv();
+    return $connection->call('snapshot_date', $id);
 }
 
 sub _set_file
@@ -82,8 +83,7 @@ sub _set_file
     my $connection = $self->__connection();
     my $id = $self->__id();
 
-    $connection->send('snapshot_set_file', $id, $path, $content, %args);
-    return $connection->recv();
+    return $connection->call('snapshot_set_file', $id, $path, $content, %args);
 }
 
 sub _set_directory
@@ -92,8 +92,7 @@ sub _set_directory
     my $connection = $self->__connection();
     my $id = $self->__id();
 
-    $connection->send('snapshot_set_directory', $id, $path, %args);
-    return $connection->recv();
+    return $connection->call('snapshot_set_directory', $id, $path, %args);
 }
 
 sub _get_file
@@ -102,8 +101,7 @@ sub _get_file
     my $connection = $self->__connection();
     my $id = $self->__id();
 
-    $connection->send('snapshot_get_file', $id, $path);
-    return $connection->recv();
+    return $connection->call('snapshot_get_file', $id, $path);
 }
 
 sub _get_directory
@@ -112,8 +110,7 @@ sub _get_directory
     my $connection = $self->__connection();
     my $id = $self->__id();
 
-    $connection->send('snapshot_get_directory', $id, $path);
-    return $connection->recv();
+    return $connection->call('snapshot_get_directory', $id, $path);
 }
 
 sub _get_properties
@@ -122,8 +119,7 @@ sub _get_properties
     my $connection = $self->__connection();
     my $id = $self->__id();
 
-    $connection->send('snapshot_get_properties', $id, $path);
-    return $connection->recv();
+    return $connection->call('snapshot_get_properties', $id, $path);
 }
 
 

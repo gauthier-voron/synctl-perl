@@ -4,10 +4,8 @@ use strict;
 use warnings;
 
 use t::File;
+use t::MockDeposit;
 use Synctl::FileControler;
-use Synctl::FileDeposit;
-use Synctl::SshProtocol;
-use Synctl::SshServer;
 
 
 # Fake ssh server creation
@@ -36,13 +34,14 @@ if (($pid = fork()) == 0) {
 # Now the child process is launched, we can setup the test environment and
 # import test only packages.
 
-use t::Deposit;
+use t::Controler;
 
-use Test::More tests => 3 + test_deposit_count();
+use Test::More tests => 3 + test_controler_count();
 
 BEGIN
 {
-    use_ok('Synctl::SshControler');
+    use_ok('Synctl::Ssh::1::1::Controler');
+    use_ok('Synctl::Ssh::1::1::Server');
 }
 
 
@@ -50,37 +49,30 @@ sub serve
 {
     my ($in, $out) = @_;
     my $box = mktroot();
-    my $path = $box . '/deposit';
-    my $deposit = Synctl::FileDeposit->new($path);
-    my $connection = Synctl::SshProtocol->connect($in, $out);
+    my $deposit = t::MockDeposit->new('', {}, {}, {});
     my $controler = Synctl::FileControler->new($deposit, $box);
-    my $server = Synctl::SshServer->new($connection, $controler);
+    my $server = Synctl::Ssh::1::1::Server->new($in, $out, $controler);
 
     $server->serve();
     return 0;
 }
-
-
-my $connection = Synctl::SshProtocol->connect($child_in, $child_out);
-my $controler = Synctl::SshControler->new($connection);
-my $deposit = $controler->deposit();
-my $eviltwin = $controler->deposit();
-
-
-ok($deposit, 'deposit instanciation');
-ok($eviltwin, 'eviltwin instanciation');
-
 
 local $SIG{ALRM} = sub {
     diag("Timeout fired. All remaining tests fail.");
     kill('KILL', $pid);
     die (255);
 };
+
 alarm(3);
 
-test_deposit($deposit, $eviltwin);
 
-$connection->send('exit');
+my $controler = Synctl::Ssh::1::1::Controler->new($child_in, $child_out);
+
+ok($controler, 'controler initialization');
+
+test_controler($controler);
+
+$controler = undef;
 waitpid($pid, 0);
 
 

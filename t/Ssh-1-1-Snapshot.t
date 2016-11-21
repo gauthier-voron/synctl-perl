@@ -6,8 +6,6 @@ use warnings;
 use t::File;
 use t::MockDeposit;
 use Synctl::FileControler;
-use Synctl::SshProtocol;
-use Synctl::SshServer;
 
 
 # Fake ssh server creation
@@ -38,11 +36,13 @@ if (($pid = fork()) == 0) {
 
 use t::Snapshot;
 
-use Test::More tests => 2 + test_snapshot_count();
+use Test::More tests => 4 + test_snapshot_count();
 
 BEGIN
 {
-    use_ok('Synctl::SshControler');
+    use_ok('Synctl::Ssh::1::1::Controler');
+    use_ok('Synctl::Ssh::1::1::Server');
+    use_ok('Synctl::Ssh::1::1::Snapshot');
 }
 
 
@@ -51,33 +51,30 @@ sub serve
     my ($in, $out) = @_;
     my $box = mktroot();
     my $deposit = t::MockDeposit->new('', {}, {}, {});
-    my $connection = Synctl::SshProtocol->connect($in, $out);
     my $controler = Synctl::FileControler->new($deposit, $box);
-    my $server = Synctl::SshServer->new($connection, $controler);
+    my $server = Synctl::Ssh::1::1::Server->new($in, $out, $controler);
 
     $server->serve();
     return 0;
 }
-
-
-my $connection = Synctl::SshProtocol->connect($child_in, $child_out);
-my $controler = Synctl::SshControler->new($connection);
-my $snapshot = $controler->create();
-
-
-ok($snapshot, 'snapshot instanciation');
-
 
 local $SIG{ALRM} = sub {
     diag("Timeout fired. All remaining tests fail.");
     kill('KILL', $pid);
     die (255);
 };
+
 alarm(3);
+
+
+my $controler = Synctl::Ssh::1::1::Controler->new($child_in, $child_out);
+my $snapshot = $controler->create();
+
+ok($snapshot, 'snapshot instanciation');
 
 test_snapshot($snapshot);
 
-$connection->send('exit');
+$controler = undef;
 waitpid($pid, 0);
 
 

@@ -1,4 +1,4 @@
-package Synctl::SshConnection;
+package Synctl::Ssh::1::1::Connection;
 
 use strict;
 use warnings;
@@ -6,7 +6,7 @@ use warnings;
 use Scalar::Util qw(blessed);
 
 use Synctl qw(:error);
-use Synctl::SshProtocol qw(encode decode);
+use Synctl::Ssh::1::1::Codec qw(encode decode);
 
 
 sub __in
@@ -110,6 +110,63 @@ sub out
     }
 
     return $self->__out();
+}
+
+
+sub read
+{
+    my ($self, $length, @err) = @_;
+    my ($in, $payload);
+
+    if (!defined($length)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!($length =~ /^\d+$/)) {
+	return throw(EINVLD, $length);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    $in = $self->in();
+
+    local $/ = \$length;
+    $payload = <$in>;
+
+    return $payload;
+}
+
+sub write
+{
+    my ($self, $payload, $length, @err) = @_;
+    my ($out, $prev);
+
+    if (!defined($payload)) {
+	return throw(ESYNTAX, undef);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    if (!defined($length)) {
+	$length = length($payload);
+    }
+
+    if (!($length =~ /^\d+$/)) {
+	return throw(EINVLD, $length);
+    } elsif ($length < length($payload)) {
+	return throw(EINVLD, $length);
+    }
+
+    $out = $self->out();
+    printf($out "%-" . $length . "s", $payload);
+    
+    $prev = select($out);
+    local $| = 1;
+    
+    printf($out "");
+    
+    local $| = 0;
+    select($prev);
+
+    return $length;
 }
 
 
@@ -292,74 +349,6 @@ sub recv
     
     return $prev;
 }
-
-
-# sub hash
-# {
-#     my ($self, $output) = @_;
-#     my $connection = $self->__connection();
-#     my ($handler, $rtag, $ret);
-
-#     $handler = sub {
-# 	my ($rtag, $type, $data) = @_;
-	
-# 	if ($type eq 'hash') {
-# 	    $output->($data);
-# 	    return 1;
-# 	} elsif ($type eq 'stop') {
-# 	    $ret = $data;
-# 	    return 0;
-# 	}
-#     };
-
-#     $rtag = $connection->talk('deposit_hash', $handler);
-#     while ($connection->wait($rtag))
-# 	;
-
-#     return $ret;
-# }
-
-# sub get
-# {
-#     my ($self, $hash) = @_;
-#     my $connection = $self->__connection();
-
-#     return $connection->call('deposit_get', $hash);
-# }
-
-# sub __deposit_get
-# {
-#     my ($self, $rtag, $hash) = @_;
-#     my $connection = $self->__connection();
-#     my $deposit = $self->__deposit();
-    
-#     $connection->send($rtag, undef, $deposit->get($hash));
-# }
-
-# sub __deposit_hash
-# {
-#     my ($self, $rtag) = @_;
-#     my $connection = $self->__connection();
-#     my $deposit = $self->__deposit();
-#     my $handler = sub {
-# 	$connection->send($rtag, undef, 'data', shift());
-#     }
-#     my $ret = $deposit->hash($handler);
-    
-#     $connection->send($rtag, undef, 'stop', $ret);
-# }
-
-# sub serve
-# {
-#     my ($self, $connection) = @_;
-
-#     $connection->recv('deposit_hash', sub { $self->__deposit_hash(@_) });
-#     $connection->recv('deposit_get', sub { $self->__deposit_get(@_) });
-
-#     while ($self->running()) {
-# 	$connection->wait();
-#     }
-# }
 
 
 1;

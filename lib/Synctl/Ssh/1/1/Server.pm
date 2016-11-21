@@ -1,0 +1,350 @@
+package Synctl::Ssh::1::1::Server;
+
+use parent qw(Synctl::SshServer);
+use strict;
+use warnings;
+
+use Scalar::Util qw(blessed);
+
+use Synctl qw(:error);
+use Synctl::Ssh::1::1::Connection;
+
+
+sub __connection
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__connection'} = $value;
+    }
+
+    return $self->{'__connection'};
+}
+
+sub __controler
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__controler'} = $value;
+    }
+
+    return $self->{'__controler'};
+}
+
+sub __running
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__running'} = $value;
+    }
+
+    return $self->{'__running'};
+}
+
+
+sub _new
+{
+    my ($self, $in, $out, $controler, @err) = @_;
+    my $connection;
+
+    if (!defined($in) || !defined($out) || !defined($controler)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!(blessed($controler) && $controler->isa('Synctl::Controler'))) {
+	return throw(EINVLD, $controler);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
+    }
+
+    $connection = Synctl::Ssh::1::1::Connection->new($in, $out);
+    if (!defined($connection)) {
+	return undef;
+    }
+
+    $self->__connection($connection);
+    $self->__controler($controler);
+    $self->__running(0);
+
+    return $self;
+}
+
+
+sub __deposit_init
+{
+    my ($self, $rtag) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $ret;
+
+    $ret = $deposit->init();
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+sub __deposit_size
+{
+    my ($self, $rtag) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $ret;
+
+    $ret = $deposit->size();
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+sub __deposit_hash
+{
+    my ($self, $rtag) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $connection = $self->__connection();
+    my $ret;
+
+    $ret = $deposit->hash(sub {
+	$connection->send($rtag, undef, 'data', shift(@_));
+    });
+
+    $connection->send($rtag, undef, 'stop', $ret);
+}
+
+sub __deposit_get
+{
+    my ($self, $rtag, $hash) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $ret;
+
+    $ret = $deposit->get($hash);
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+sub __deposit_put
+{
+    my ($self, $rtag, $hash) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $ret;
+
+    $ret = $deposit->put($hash);
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+sub __deposit_send
+{
+    my ($self, $rtag) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $connection = $self->__connection();
+    my ($callback, $calltag, $buffer, $ret);
+
+    $callback = sub {
+	my ($stag, $rrtag, $type, $data) = @_;
+
+	if ($type eq 'data') {
+	    $buffer = $data;
+	    return 1;
+	} elsif ($type eq 'stop') {
+	    $buffer = undef;
+	    return 0;
+	}
+    };
+
+    $calltag = $connection->talk($rtag, $callback, 'accept');
+
+    $ret = $deposit->send(sub {
+	$connection->wait($calltag);
+	return $buffer;
+    });
+
+    $connection->send($rtag, undef, 'hash', $ret);
+}
+
+sub __deposit_recv
+{
+    my ($self, $rtag, $hash) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $connection = $self->__connection();
+    my $ret;
+
+    $ret = $deposit->recv($hash, sub {
+	$connection->send($rtag, undef, 'data', shift(@_));
+    });
+
+    $connection->send($rtag, undef, 'stop', $ret);
+}
+
+
+sub __get_snapshot
+{
+    my ($self, $id) = @_;
+    my @snapshots = $self->__controler()->snapshot();
+
+    @snapshots = grep { $_->id() eq $id } @snapshots;
+
+    if (scalar(@snapshots) == 0) {
+	return undef;
+    } else {
+	return shift(@snapshots);
+    }
+}
+
+sub __snapshot_date
+{
+    my ($self, $rtag, $id) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+
+    if (defined($snapshot)) {
+	$connection->send($rtag, undef, $snapshot->date());
+    } else {
+	$connection->send($rtag, undef, undef);
+    }
+}
+
+sub __snapshot_set_file
+{
+    my ($self, $rtag, $id, $path, $content, %args) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $ret;
+
+    $ret = $snapshot->set_file($path, $content, %args);
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+sub __snapshot_set_directory
+{
+    my ($self, $rtag, $id, $path, %args) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $ret;
+
+    $ret = $snapshot->set_directory($path, %args);
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+sub __snapshot_get_file
+{
+    my ($self, $rtag, $id, $path) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+
+    $connection->send($rtag, undef, $snapshot->get_file($path));
+}
+
+sub __snapshot_get_directory
+{
+    my ($self, $rtag, $id, $path) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+
+    $connection->send($rtag, undef, $snapshot->get_directory($path));
+}
+
+sub __snapshot_get_properties
+{
+    my ($self, $rtag, $id, $path) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+
+    $connection->send($rtag, undef, $snapshot->get_properties($path));
+}
+
+
+sub __snapshot
+{
+    my ($self, $rtag) = @_;
+    my $controler = $self->__controler();
+    my $connection = $self->__connection();
+    my @ids = map { $_->id() } $controler->snapshot();
+
+    $connection->send($rtag, undef, @ids);
+}
+
+sub __create
+{
+    my ($self, $rtag) = @_;
+    my $controler = $self->__controler();
+    my $snapshot = $controler->create();
+
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $snapshot->id());
+    }
+}
+
+sub __delete
+{
+    my ($self, $rtag, $id) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $controler = $self->__controler();
+    my $ret;
+    
+    $ret = $controler->delete($snapshot);
+    if (defined($rtag)) {
+	$self->__connection()->send($rtag, undef, $ret);
+    }
+}
+
+
+sub __exit
+{
+    my ($self, $rtag) = @_;
+    $self->__running(0);
+}
+
+
+sub __hook
+{
+    my ($self, $tag, $handler) = @_;
+    my $connection = $self->__connection();
+
+    $connection->recv($tag, sub {
+	my ($stag, $rtag, @args) = @_;
+	return $self->$handler($rtag, @args);
+    });
+}
+
+
+sub _serve
+{
+    my ($self) = @_;
+    my $connection = $self->__connection();
+
+    $self->__hook('deposit_init',            \&__deposit_init);
+    $self->__hook('deposit_size',            \&__deposit_size);
+    $self->__hook('deposit_hash',            \&__deposit_hash);
+    $self->__hook('deposit_get',             \&__deposit_get);
+    $self->__hook('deposit_put',             \&__deposit_put);
+    $self->__hook('deposit_send',            \&__deposit_send);
+    $self->__hook('deposit_recv',            \&__deposit_recv);
+
+    $self->__hook('snapshot_date',           \&__snapshot_date);
+    $self->__hook('snapshot_set_file',       \&__snapshot_set_file);
+    $self->__hook('snapshot_set_directory',  \&__snapshot_set_directory);
+    $self->__hook('snapshot_get_file',       \&__snapshot_get_file);
+    $self->__hook('snapshot_get_directory',  \&__snapshot_get_directory);
+    $self->__hook('snapshot_get_properties', \&__snapshot_get_properties);
+
+    $self->__hook('snapshot',                \&__snapshot);
+    $self->__hook('create',                  \&__create);
+    $self->__hook('delete',                  \&__delete);
+
+    $self->__hook('exit',                    \&__exit);
+
+    $self->__running(1);
+    while ($self->__running()) {
+	$connection->wait('exit');
+    }
+
+    return 0;
+}
+
+
+1;
+__END__

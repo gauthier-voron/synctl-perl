@@ -8,7 +8,7 @@ use Test::More tests => 30;
 
 BEGIN
 {
-    use_ok('Synctl::SshConnection');
+    use_ok('Synctl::Ssh::1::1::Connection');
 }
 
 
@@ -21,14 +21,15 @@ if (!pipe($ain, $bout)) { die ($!); }
 if (!pipe($bin, $aout)) { die ($!); }
 
 
-ok($acon = Synctl::SshConnection->new($ain, $aout), 'create connection');
+ok($acon = Synctl::Ssh::1::1::Connection->new($ain, $aout),
+   'create connection');
 
 
 close($ain); close($aout); close($bin); close($bout);
 if (!pipe($ain, $bout)) { die ($!); }
 if (!pipe($bin, $aout)) { die ($!); }
 
-$acon = Synctl::SshConnection->new($ain, $aout);
+$acon = Synctl::Ssh::1::1::Connection->new($ain, $aout);
 
 $asub = sub { 1; };
 $ret = $acon->recv('taga', $asub);
@@ -63,8 +64,8 @@ close($ain); close($aout); close($bin); close($bout);
 if (!pipe($ain, $bout)) { die ($!); }
 if (!pipe($bin, $aout)) { die ($!); }
 
-$acon = Synctl::SshConnection->new($ain, $aout);
-$bcon = Synctl::SshConnection->new($bin, $bout);
+$acon = Synctl::Ssh::1::1::Connection->new($ain, $aout);
+$bcon = Synctl::Ssh::1::1::Connection->new($bin, $bout);
 
 $acon->recv('taga', sub { $ascal = 1; return 0; });
 
@@ -90,8 +91,8 @@ close($ain); close($aout); close($bin); close($bout);
 if (!pipe($ain, $bout)) { die ($!); }
 if (!pipe($bin, $aout)) { die ($!); }
 
-$acon = Synctl::SshConnection->new($ain, $aout);
-$bcon = Synctl::SshConnection->new($bin, $bout);
+$acon = Synctl::Ssh::1::1::Connection->new($ain, $aout);
+$bcon = Synctl::Ssh::1::1::Connection->new($bin, $bout);
 
 $acon->recv('taga', sub { ($stag, $rtag, @args) = @_; return 0; });
 $bcon->send('taga', 'tagb', 'scal', [ 'arr', 'ay' ]);  $acon->wait('taga');
@@ -104,8 +105,8 @@ close($ain); close($aout); close($bin); close($bout);
 if (!pipe($ain, $bout)) { die ($!); }
 if (!pipe($bin, $aout)) { die ($!); }
 
-$acon = Synctl::SshConnection->new($ain, $aout);
-$bcon = Synctl::SshConnection->new($bin, $bout);
+$acon = Synctl::Ssh::1::1::Connection->new($ain, $aout);
+$bcon = Synctl::Ssh::1::1::Connection->new($bin, $bout);
 
 $acon->recv('taga', sub { $ascal++; return 1; });
 $acon->recv('tagb', sub { $bscal++; return 1; });
@@ -157,8 +158,8 @@ close($ain); close($aout); close($bin); close($bout);
 if (!pipe($ain, $bout)) { die ($!); }
 if (!pipe($bin, $aout)) { die ($!); }
 
-$acon = Synctl::SshConnection->new($ain, $aout);
-$bcon = Synctl::SshConnection->new($bin, $bout);
+$acon = Synctl::Ssh::1::1::Connection->new($ain, $aout);
+$bcon = Synctl::Ssh::1::1::Connection->new($bin, $bout);
 
 $bcon->recv('taga', sub {
     my ($st, $rt, $scal) = @_;
@@ -190,7 +191,7 @@ if (($pid = fork()) == 0) {
     Test::More->builder()->no_ending(1);
     close($ain); close($aout);
     
-    $bcon = Synctl::SshConnection->new($bin, $bout);
+    $bcon = Synctl::Ssh::1::1::Connection->new($bin, $bout);
 
     $bcon->recv('taga', sub {
 	my ($st, $rt, $scal) = @_;
@@ -209,7 +210,7 @@ if (($pid = fork()) == 0) {
     exit (0);
 }
 
-$acon = Synctl::SshConnection->new($ain, $aout);
+$acon = Synctl::Ssh::1::1::Connection->new($ain, $aout);
 
 $asub = sub {
     ($_, $_, @arr) = @_;
