@@ -32,6 +32,50 @@ sub __id
     return $self->{'__id'};
 }
 
+sub __writeback
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__writeback'} = $value;
+    }
+
+    return $self->{'__writeback'};
+}
+
+sub __dcontent
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__dcontent'} = $value;
+    }
+
+    return $self->{'__dcontent'};
+}
+
+sub __fcontent
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__fcontent'} = $value;
+    }
+
+    return $self->{'__fcontent'};
+}
+
+sub __property
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__property'} = $value;
+    }
+
+    return $self->{'__property'};
+}
+
 
 sub _new
 {
@@ -52,8 +96,53 @@ sub _new
 
     $self->__connection($connection);
     $self->__id($id);
+    $self->__writeback(0);
+    $self->__fcontent({});
+    $self->__dcontent({});
+    $self->__property({});
     
     return $self;
+}
+
+
+sub __load_file
+{
+    my ($self, $path) = @_;
+    $self->__load_file($path);
+}
+
+sub __load_directory
+{
+    my ($self, $path) = @_;
+    my ($children, $child, $sep);
+
+    $children = $self->get_directory($path);
+    if (!defined($children)) {
+	return;
+    }
+
+    if ($path ne '/') {
+	$sep = '/';
+    } else {
+	$sep = '';
+    }
+
+    foreach $child (@$children) {
+	$self->__load_file($path . $sep . $child);
+	$self->__load_directory($path . $sep . $child);
+    }
+}
+
+sub load
+{
+    my ($self, @err) = @_;
+
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    $self->__writeback(1);
+    $self->__load_directory('/');
 }
 
 
@@ -82,6 +171,37 @@ sub _set_file
     my ($self, $path, $content, %args) = @_;
     my $connection = $self->__connection();
     my $id = $self->__id();
+    my $wb = $self->__writeback();
+    my ($parent, $child, $children);
+
+    if ($wb) {
+	if (defined($self->__fcontent()->{$path})) {
+	    return undef;
+	} elsif (defined($self->__dcontent()->{$path})) {
+	    return undef;
+	}
+
+	$path =~ m|^(.*)/([^/]+)$|;
+	($parent, $child) = ($1, $2);
+	if ($parent eq '') {
+	    $parent = '/';
+	}
+
+	if (!defined($self->__dcontent()->{$parent})) {
+	    return undef;
+	}
+
+	$connection->send('snapshot_set_file', undef,
+			  $id, $path, $content, %args);
+
+	$self->__fcontent()->{$path} = $content;
+	$self->__property()->{$path} = { %args };
+
+	$children = $self->__dcontent()->{$parent};
+	push(@$children, $child);
+
+	return 1;
+    }
 
     return $connection->call('snapshot_set_file', $id, $path, $content, %args);
 }
@@ -91,6 +211,40 @@ sub _set_directory
     my ($self, $path, %args) = @_;
     my $connection = $self->__connection();
     my $id = $self->__id();
+    my $wb = $self->__writeback();
+    my ($parent, $child, $children);
+
+    if ($wb) {
+	if (defined($self->__fcontent()->{$path})) {
+	    return undef;
+	} elsif (defined($self->__dcontent()->{$path})) {
+	    return undef;
+	}
+
+	if ($path ne '/') {
+	    $path =~ m|^(.*)/([^/]+)$|;
+	    ($parent, $child) = ($1, $2);
+	    if ($parent eq '') {
+		$parent = '/';
+	    }
+
+	    if (!defined($self->__dcontent()->{$parent})) {
+		return undef;
+	    }
+	}
+
+	$connection->send('snapshot_set_directory', undef, $id, $path, %args);
+
+	$self->__dcontent()->{$path} = [];
+	$self->__property()->{$path} = { %args };
+
+	if ($path ne '/') {
+	    $children = $self->__dcontent()->{$parent};
+	    push(@$children, $child);
+	}
+
+	return 1;
+    }
 
     return $connection->call('snapshot_set_directory', $id, $path, %args);
 }
@@ -98,28 +252,67 @@ sub _set_directory
 sub _get_file
 {
     my ($self, $path) = @_;
-    my $connection = $self->__connection();
     my $id = $self->__id();
+    my $wb = $self->__writeback();
+    my ($ret, $connection);
 
-    return $connection->call('snapshot_get_file', $id, $path);
+    if ($wb) {
+	$ret = $self->__fcontent()->{$path};
+    }
+
+    if (!defined($ret)) {
+	$connection = $self->__connection();
+	$ret = $connection->call('snapshot_get_file', $id, $path);
+	if (defined($ret) && $wb) {
+	    $self->__fcontent()->{$path} = $ret;
+	}
+    }
+
+    return $ret;
 }
 
 sub _get_directory
 {
     my ($self, $path) = @_;
-    my $connection = $self->__connection();
     my $id = $self->__id();
+    my $wb = $self->__writeback();
+    my ($ret, $connection);
 
-    return $connection->call('snapshot_get_directory', $id, $path);
+    if ($wb) {
+	$ret = $self->__dcontent()->{$path};
+    }
+
+    if (!defined($ret)) {
+	$connection = $self->__connection();
+	$ret = $connection->call('snapshot_get_directory', $id, $path);
+	if (defined($ret) && $wb) {
+	    $self->__dcontent()->{$path} = $ret;
+	}
+    }
+
+    return $ret;
 }
 
 sub _get_properties
 {
     my ($self, $path) = @_;
-    my $connection = $self->__connection();
     my $id = $self->__id();
+    my $wb = $self->__writeback();
+    my ($connection, $ret);
 
-    return $connection->call('snapshot_get_properties', $id, $path);
+    if ($wb) {
+	$ret = $self->__property()->{$path};
+    }
+
+    if (!defined($ret)) {
+	$connection = $self->__connection();
+	$ret = $connection->call('snapshot_get_properties', $id, $path);
+	if (defined($ret) && $wb) {
+	    $self->__property()->{$path} = $ret;
+	}
+    }
+
+    return $ret;
 }
 
 

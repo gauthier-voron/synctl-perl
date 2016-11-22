@@ -80,7 +80,7 @@ sub snapshot
 sub create
 {
     my ($self, @err) = @_;
-    my ($connection, $id);
+    my ($connection, $id, $snapshot);
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
@@ -89,7 +89,10 @@ sub create
     $connection = $self->__connection();
     $id = $connection->call('create');
 
-    return Synctl::Ssh::1::1::Snapshot->new($connection, $id);
+    $snapshot = Synctl::Ssh::1::1::Snapshot->new($connection, $id);
+    $snapshot->load();
+
+    return $snapshot;
 }
 
 sub delete

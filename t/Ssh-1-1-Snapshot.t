@@ -36,7 +36,7 @@ if (($pid = fork()) == 0) {
 
 use t::Snapshot;
 
-use Test::More tests => 4 + test_snapshot_count();
+use Test::More tests => 4 + test_snapshot_count() * 2;
 
 BEGIN
 {
@@ -71,6 +71,11 @@ my $controler = Synctl::Ssh::1::1::Controler->new($child_in, $child_out);
 my $snapshot = $controler->create();
 
 ok($snapshot, 'snapshot instanciation');
+
+test_snapshot($snapshot);
+
+$snapshot = $controler->create();
+$snapshot->load();
 
 test_snapshot($snapshot);
 
