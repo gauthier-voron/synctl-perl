@@ -197,11 +197,16 @@ sub __snapshot_date
     my ($self, $rtag, $id) = @_;
     my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
+    my $ret;
 
     if (defined($snapshot)) {
-	$connection->send($rtag, undef, $snapshot->date());
+	$ret = $snapshot->date();
     } else {
-	$connection->send($rtag, undef, undef);
+	$ret = undef;
+    }
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
     }
 }
 
@@ -211,7 +216,12 @@ sub __snapshot_set_file
     my $snapshot = $self->__get_snapshot($id);
     my $ret;
 
-    $ret = $snapshot->set_file($path, $content, %args);
+    if (defined($snapshot)) {
+	$ret = $snapshot->set_file($path, $content, %args);
+    } else {
+	$ret = undef;
+    }
+
     if (defined($rtag)) {
 	$self->__connection()->send($rtag, undef, $ret);
     }
@@ -223,7 +233,12 @@ sub __snapshot_set_directory
     my $snapshot = $self->__get_snapshot($id);
     my $ret;
 
-    $ret = $snapshot->set_directory($path, %args);
+    if (defined($snapshot)) {
+	$ret = $snapshot->set_directory($path, %args);
+    } else {
+	$ret = undef;
+    }
+
     if (defined($rtag)) {
 	$self->__connection()->send($rtag, undef, $ret);
     }
@@ -234,8 +249,17 @@ sub __snapshot_get_file
     my ($self, $rtag, $id, $path) = @_;
     my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
+    my $ret;
 
-    $connection->send($rtag, undef, $snapshot->get_file($path));
+    if (defined($snapshot)) {
+	$ret = $snapshot->get_file($path);
+    } else {
+	$ret = undef;
+    }
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
+    }
 }
 
 sub __snapshot_get_directory
@@ -243,8 +267,17 @@ sub __snapshot_get_directory
     my ($self, $rtag, $id, $path) = @_;
     my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
+    my $ret;
 
-    $connection->send($rtag, undef, $snapshot->get_directory($path));
+    if (defined($snapshot)) {
+	$ret = $snapshot->get_directory($path);
+    } else {
+	$ret = undef;
+    }
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
+    }
 }
 
 sub __snapshot_get_properties
@@ -252,8 +285,17 @@ sub __snapshot_get_properties
     my ($self, $rtag, $id, $path) = @_;
     my $snapshot = $self->__get_snapshot($id);
     my $connection = $self->__connection();
+    my $ret;
 
-    $connection->send($rtag, undef, $snapshot->get_properties($path));
+    if (defined($snapshot)) {
+	$ret = $snapshot->get_properties($path);
+    } else {
+	$ret = undef;
+    }
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
+    }
 }
 
 
@@ -264,7 +306,9 @@ sub __snapshot
     my $connection = $self->__connection();
     my @ids = map { $_->id() } $controler->snapshot();
 
-    $connection->send($rtag, undef, @ids);
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, @ids);
+    }
 }
 
 sub __create
@@ -284,8 +328,13 @@ sub __delete
     my $snapshot = $self->__get_snapshot($id);
     my $controler = $self->__controler();
     my $ret;
+
+    if (defined($snapshot)) {
+	$ret = $controler->delete($snapshot);
+    } else {
+	$ret = undef;
+    }
     
-    $ret = $controler->delete($snapshot);
     if (defined($rtag)) {
 	$self->__connection()->send($rtag, undef, $ret);
     }
@@ -306,7 +355,9 @@ sub __hook
 
     $connection->recv($tag, sub {
 	my ($stag, $rtag, @args) = @_;
-	return $self->$handler($rtag, @args);
+
+	$self->$handler($rtag, @args);
+	return 1;
     });
 }
 
