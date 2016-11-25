@@ -113,14 +113,5 @@ sub delete
 }
 
 
-sub DESTROY
-{
-    my ($self) = @_;
-    my $connection = $self->__connection();
-
-    $connection->send('exit', undef);
-}
-
-
 1;
 __END__

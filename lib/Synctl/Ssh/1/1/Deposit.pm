@@ -85,7 +85,8 @@ sub _get
     my $connection;
 
     $connection = $self->__connection();
-    return $connection->call('deposit_get', $hash);
+    my $ret = $connection->call('deposit_get', $hash);
+    return $ret;
 }
 
 sub _put

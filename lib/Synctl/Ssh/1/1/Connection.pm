@@ -113,63 +113,6 @@ sub out
 }
 
 
-sub read
-{
-    my ($self, $length, @err) = @_;
-    my ($in, $payload);
-
-    if (!defined($length)) {
-	return throw(ESYNTAX, undef);
-    } elsif (!($length =~ /^\d+$/)) {
-	return throw(EINVLD, $length);
-    } elsif (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-
-    $in = $self->in();
-
-    local $/ = \$length;
-    $payload = <$in>;
-
-    return $payload;
-}
-
-sub write
-{
-    my ($self, $payload, $length, @err) = @_;
-    my ($out, $prev);
-
-    if (!defined($payload)) {
-	return throw(ESYNTAX, undef);
-    } elsif (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-
-    if (!defined($length)) {
-	$length = length($payload);
-    }
-
-    if (!($length =~ /^\d+$/)) {
-	return throw(EINVLD, $length);
-    } elsif ($length < length($payload)) {
-	return throw(EINVLD, $length);
-    }
-
-    $out = $self->out();
-    printf($out "%-" . $length . "s", $payload);
-    
-    $prev = select($out);
-    local $| = 1;
-    
-    printf($out "");
-    
-    local $| = 0;
-    select($prev);
-
-    return $length;
-}
-
-
 sub _vector
 {
     my ($self) = @_;
@@ -284,6 +227,10 @@ sub wait
     $run = 1;
     while ($run) {
 	$packet = $self->_fetch();
+	if (!defined($packet)) {
+	    return 0;
+	}
+
 	($stag, $rtag, $payload) = @$packet;
 	
 	$handler = $vector->{$stag};

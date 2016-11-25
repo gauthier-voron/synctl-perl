@@ -72,7 +72,8 @@ ok($controler, 'controler initialization');
 
 test_controler($controler);
 
-$controler = undef;
+close($child_in);
+close($child_out);
 waitpid($pid, 0);
 
 

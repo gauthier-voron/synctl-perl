@@ -390,7 +390,9 @@ sub _serve
 
     $self->__running(1);
     while ($self->__running()) {
-	$connection->wait('exit');
+	if ($connection->wait('exit') == 0) {
+	    return 0;
+	}
     }
 
     return 0;
