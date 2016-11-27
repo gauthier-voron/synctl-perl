@@ -17,6 +17,7 @@ use Test::More tests => 5 + test_deposit_count();
 
 my @pids;
 my @deposits;
+my @pipes;
 
 
 # Fake ssh server creation
@@ -67,6 +68,7 @@ sub mkserver
 
 	push(@pids, $pid);
 	push(@deposits, $deposit);
+	push(@pipes, [ $child_in, $child_out ]);
 
 	return $controler;
     }
@@ -79,6 +81,8 @@ sub waitservers
     foreach $pid (@pids) {
 	waitpid($pid, 0);
     }
+
+    @pids = ();
 }
 
 
@@ -108,9 +112,14 @@ sub alloc
 sub check
 {
     my ($deposit, %refs) = @_;
-    my ($ref, $count, $ok, $hash);
+    my ($ref, $count, $ok, $hash, $p);
 
+    $p = pop(@pipes);
+    close($p->[0]);
+    close($p->[1]);
     $deposit = pop(@deposits);
+
+    waitservers();
 
     $ok = 1;
     foreach $ref (keys(%refs)) {
@@ -136,6 +145,7 @@ sub check
 my $controler = mkserver();
 my $deposit = $controler->deposit();
 my $eviltwin = $controler->deposit();
+my $p;
 
 alarm(3);  # Terminate testing after 3 seconds
 
@@ -146,15 +156,16 @@ ok($deposit->init(), 'init from nothing');
 ok(!$deposit->init(), 'init on existing (same object)');
 ok(!$eviltwin->init(), 'init on existing (different object)');
 
+$p = pop(@pipes);
+close($p->[0]);
+close($p->[1]);
 pop(@deposits);
-$deposit = undef;
-$eviltwin = undef;
-$controler = undef;
+
+waitservers();
 
 
 test_deposit(\&alloc, \&check);
 
-waitservers();
 
 1;
 __END__

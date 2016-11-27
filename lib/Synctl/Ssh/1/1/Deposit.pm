@@ -20,6 +20,17 @@ sub __connection {
     return $self->{'__connection'};
 }
 
+sub __cache
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__cache'} = $value;
+    }
+
+    return $self->{'__cache'};
+}
+
 
 sub _new
 {
@@ -32,6 +43,8 @@ sub _new
     }
 
     $self->__connection($connection);
+    $self->__cache({});
+
     return $self;
 }
 
@@ -58,13 +71,16 @@ sub _hash
 {
     my ($self, $handler) = @_;
     my $connection = $self->__connection();
-    my ($callback, $calltag, $ret);
+    my ($callback, $calltag, $ret, $cache);
+
+    $cache = $self->__cache();
 
     $callback = sub {
 	my ($stag, $rtag, $type, $data) = @_;
 	
 	if ($type eq 'data') {
 	    $handler->($data);
+	    $cache->{$data} = 1;
 	    return 1;
 	} elsif ($type eq 'stop') {
 	    $ret = $data;
@@ -82,27 +98,79 @@ sub _hash
 sub _get
 {
     my ($self, $hash) = @_;
-    my $connection;
+    my ($connection, $cache, $value, $remote);
 
     $connection = $self->__connection();
-    my $ret = $connection->call('deposit_get', $hash);
-    return $ret;
+    $cache = $self->__cache();
+
+    if (!defined($value = $cache->{$hash}) || $value == 0) {
+	$value = $connection->call('deposit_get', $hash);
+	$remote = 1;
+
+	if (defined($value)) {
+	    $value = 1;
+	} else {
+	    $value = -1;
+	}
+
+	$cache->{$hash} = $value;
+    }
+
+    if ($value < 0) {
+	return undef;
+    } elsif (!$remote) {
+	$connection->send('deposit_get', undef, $hash);
+    }
+
+    $cache->{$hash} = $value + 1;
+    return 1;
 }
 
 sub _put
 {
     my ($self, $hash) = @_;
-    my $connection;
+    my ($connection, $cache, $value, $remote);
 
     $connection = $self->__connection();
-    return $connection->call('deposit_put', $hash);
+    $cache = $self->__cache();
+
+    if (!defined($value = $cache->{$hash}) || $value == 0 || $value == 1) {
+	$value = $connection->call('deposit_put', $hash);
+	$remote = 1;
+
+	if (!defined($value)) {
+	    $value = -1;
+	} elsif ($value == 0) {
+	    $value = 0;
+	} else {
+	    $value = 2;
+	}
+
+	$cache->{$hash} = $value;
+    }
+
+    if ($value < 0) {
+	return undef;
+    } elsif (!$remote) {
+	$connection->send('deposit_put', undef, $hash);
+    }
+
+    $value = $value - 1;
+    $cache->{$hash} = $value;
+
+    if ($value < 0) {
+	return 0;
+    } else {
+	return 1;
+    }
 }
 
 sub _send
 {
     my ($self, $provider) = @_;
     my $connection = $self->__connection();
-    my ($callback, $calltag, $data, $ret);
+    my $cache = $self->__cache();
+    my ($callback, $calltag, $data, $value, $ret);
 
     $callback = sub {
 	my ($stag, $rtag, $type, $hash) = @_;
@@ -123,6 +191,18 @@ sub _send
     $calltag = $connection->talk('deposit_send', $callback);
     $connection->wait($calltag);  # transfert
     $connection->wait($calltag);  # get hash
+
+    if (defined($value = $cache->{$ret})) {
+	if ($value < 0) {
+	    $value = 1;
+	} else {
+	    $value = $value + 1;
+	}
+    } else {
+	$value = 1;
+    }
+
+    $cache->{$ret} = $value;
 
     return $ret;
 }
