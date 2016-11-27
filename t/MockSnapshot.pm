@@ -75,6 +75,12 @@ sub _get_properties
     return $self->{'properties'}->{$path};
 }
 
+sub _flush
+{
+    my ($self) = @_;
+    return 1;
+}
+
 
 1;
 __END__

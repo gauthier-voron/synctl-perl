@@ -315,6 +315,15 @@ sub _get_properties
     return $ret;
 }
 
+sub _flush
+{
+    my ($self) = @_;
+    my $id = $self->__id();
+    my $connection = $self->__connection();
+
+    return $connection->call('snapshot_flush', $id);
+}
+
 
 1;
 __END__

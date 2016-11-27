@@ -312,6 +312,24 @@ sub __snapshot_get_properties
     }
 }
 
+sub __snapshot_flush
+{
+    my ($self, $rtag, $id) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+    my $ret;
+
+    if (defined($snapshot)) {
+	$ret = $snapshot->flush();
+    } else {
+	$ret = undef;
+    }
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
+    }
+}
+
 
 sub __snapshot
 {
@@ -396,6 +414,7 @@ sub _serve
     $self->__hook('snapshot_get_file',       \&__snapshot_get_file);
     $self->__hook('snapshot_get_directory',  \&__snapshot_get_directory);
     $self->__hook('snapshot_get_properties', \&__snapshot_get_properties);
+    $self->__hook('snapshot_flush',          \&__snapshot_flush);
 
     $self->__hook('snapshot',                \&__snapshot);
     $self->__hook('create',                  \&__create);

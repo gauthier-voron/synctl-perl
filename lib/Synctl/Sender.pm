@@ -253,6 +253,7 @@ sub send
     });
 
     $self->deposit()->flush();
+    $self->snapshot()->flush();
 
     return $err;
 }

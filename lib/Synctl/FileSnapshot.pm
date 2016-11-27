@@ -257,6 +257,15 @@ sub _get_properties
     return undef;
 }
 
+sub _flush
+{
+    my ($self) = @_;
+
+    # nothing to do
+
+    return 1;
+}
+
 
 1;
 __END__
