@@ -177,6 +177,20 @@ sub __deposit_recv
     $connection->send($rtag, undef, 'stop', $ret);
 }
 
+sub __deposit_flush
+{
+    my ($self, $rtag, $hash) = @_;
+    my $deposit = $self->__controler()->deposit();
+    my $connection = $self->__connection();
+    my $ret;
+
+    $ret = $deposit->flush();
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
+    }
+}
+
 
 sub __get_snapshot
 {
@@ -374,6 +388,7 @@ sub _serve
     $self->__hook('deposit_put',             \&__deposit_put);
     $self->__hook('deposit_send',            \&__deposit_send);
     $self->__hook('deposit_recv',            \&__deposit_recv);
+    $self->__hook('deposit_flush',           \&__deposit_flush);
 
     $self->__hook('snapshot_date',           \&__snapshot_date);
     $self->__hook('snapshot_set_file',       \&__snapshot_set_file);

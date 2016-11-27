@@ -252,6 +252,8 @@ sub send
 	$err++;
     });
 
+    $self->deposit()->flush();
+
     return $err;
 }
 

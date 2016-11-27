@@ -68,7 +68,7 @@ sub mkserver
 
 	push(@pids, $pid);
 	push(@deposits, $deposit);
-	push(@pipes, [ $child_in, $child_out ]);
+	push(@pipes, $child_in, $child_out);
 
 	return $controler;
     }
@@ -76,13 +76,18 @@ sub mkserver
 
 sub waitservers
 {
-    my $pid;
+    my ($pid, $fh);
+
+    foreach $fh (@pipes) {
+	close($fh);
+    }
 
     foreach $pid (@pids) {
 	waitpid($pid, 0);
     }
 
     @pids = ();
+    @pipes = ();
 }
 
 
@@ -114,9 +119,7 @@ sub check
     my ($deposit, %refs) = @_;
     my ($ref, $count, $ok, $hash, $p);
 
-    $p = pop(@pipes);
-    close($p->[0]);
-    close($p->[1]);
+    $deposit->flush();
     $deposit = pop(@deposits);
 
     waitservers();
@@ -156,9 +159,6 @@ ok($deposit->init(), 'init from nothing');
 ok(!$deposit->init(), 'init on existing (same object)');
 ok(!$eviltwin->init(), 'init on existing (different object)');
 
-$p = pop(@pipes);
-close($p->[0]);
-close($p->[1]);
 pop(@deposits);
 
 waitservers();

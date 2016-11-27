@@ -232,6 +232,14 @@ sub _recv
     return $ret;
 }
 
+sub _flush
+{
+    my ($self) = @_;
+    my $connection = $self->__connection();
+
+    return $connection->call('deposit_flush');
+}
+
 
 1;
 __END__
