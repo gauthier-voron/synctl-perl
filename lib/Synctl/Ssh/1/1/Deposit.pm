@@ -71,18 +71,21 @@ sub _hash
 {
     my ($self, $handler) = @_;
     my $connection = $self->__connection();
-    my ($callback, $calltag, $ret, $cache);
+    my ($callback, $calltag, $ret, $cache, $data);
 
     $cache = $self->__cache();
 
     $callback = sub {
-	my ($stag, $rtag, $type, $data) = @_;
+	my ($stag, $rtag, $type, @buffer) = @_;
 	
 	if ($type eq 'data') {
-	    $handler->($data);
-	    $cache->{$data} = 1;
+	    foreach $data (@buffer) {
+		$handler->($data);
+		$cache->{$data} = 1;
+	    }
 	    return 1;
 	} elsif ($type eq 'stop') {
+	    $data = shift(@buffer);
 	    $ret = $data;
 	    return 0;
 	}

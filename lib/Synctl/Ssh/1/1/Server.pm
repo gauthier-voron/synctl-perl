@@ -4,6 +4,10 @@ use parent qw(Synctl::SshServer);
 use strict;
 use warnings;
 
+use constant {
+    HBUFFER => 256
+};
+
 use Scalar::Util qw(blessed);
 
 use Synctl qw(:error);
@@ -101,11 +105,23 @@ sub __deposit_hash
     my ($self, $rtag) = @_;
     my $deposit = $self->__controler()->deposit();
     my $connection = $self->__connection();
-    my $ret;
+    my (@buffer, $size, $ret);
 
+    $size = 0;
     $ret = $deposit->hash(sub {
-	$connection->send($rtag, undef, 'data', shift(@_));
+	push(@buffer, shift(@_));
+	$size = $size + 1;
+
+	if ($size == HBUFFER) {
+	    $connection->send($rtag, undef, 'data', @buffer);
+	    @buffer = ();
+	    $size = 0;
+	}
     });
+
+    if ($size > 0) {
+	$connection->send($rtag, undef, 'data', @buffer);
+    }
 
     $connection->send($rtag, undef, 'stop', $ret);
 }
