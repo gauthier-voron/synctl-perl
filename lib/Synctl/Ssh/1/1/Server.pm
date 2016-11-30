@@ -274,6 +274,26 @@ sub __snapshot_set_directory
     }
 }
 
+sub __snapshot_set_buffer
+{
+    my ($self, $rtag, $id, $buffer) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my ($entry, $type, @args);
+
+    if (!defined($snapshot)) {
+	return undef;
+    }
+
+    foreach $entry (@$buffer) {
+	($type, @args) = @$entry;
+	if ($type eq 'f') {
+	    $snapshot->set_file(@args);
+	} elsif ($type eq 'd') {
+	    $snapshot->set_directory(@args);
+	}
+    }
+}
+
 sub __snapshot_get_file
 {
     my ($self, $rtag, $id, $path) = @_;
@@ -426,6 +446,7 @@ sub _serve
 
     $self->__hook('snapshot_date',           \&__snapshot_date);
     $self->__hook('snapshot_set_file',       \&__snapshot_set_file);
+    $self->__hook('snapshot_set_buffer',     \&__snapshot_set_buffer);
     $self->__hook('snapshot_set_directory',  \&__snapshot_set_directory);
     $self->__hook('snapshot_get_file',       \&__snapshot_get_file);
     $self->__hook('snapshot_get_directory',  \&__snapshot_get_directory);

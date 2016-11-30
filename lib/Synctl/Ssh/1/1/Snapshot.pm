@@ -4,6 +4,10 @@ use parent qw(Synctl::Snapshot);
 use strict;
 use warnings;
 
+use constant {
+    SBUFFER => 128
+};
+
 use Carp;
 use Scalar::Util qw(blessed);
 
@@ -76,6 +80,28 @@ sub __property
     return $self->{'__property'};
 }
 
+sub __buffer
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__buffer'} = $value;
+    }
+
+    return $self->{'__buffer'};
+}
+
+sub __bufsize
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)) {
+	$self->{'__bufsize'} = $value;
+    }
+
+    return $self->{'__bufsize'};
+}
+
 
 sub _new
 {
@@ -96,10 +122,14 @@ sub _new
 
     $self->__connection($connection);
     $self->__id($id);
+
     $self->__writeback(0);
     $self->__fcontent({});
     $self->__dcontent({});
     $self->__property({});
+
+    $self->__buffer([]);
+    $self->__bufsize(0);
     
     return $self;
 }
@@ -143,6 +173,50 @@ sub load
 
     $self->__writeback(1);
     $self->__load_directory('/');
+}
+
+
+sub _flush_buffer
+{
+    my ($self) = @_;
+    my $buffer = $self->__buffer();
+    my $id = $self->__id();
+    my $connection = $self->__connection();
+
+    $connection->send('snapshot_set_buffer', undef, $id, $buffer);
+
+    $self->__buffer([]);
+    $self->__bufsize(0);
+}
+
+sub _send_bufferized
+{
+    my ($self, @args) = @_;
+    my $buffer = $self->__buffer();
+    my $size = $self->__bufsize();
+
+    push(@$buffer, \@args);
+    $size = $size + 1;
+
+    if ($size >= SBUFFER) {
+	$self->_flush_buffer();
+    } else {
+	$self->__bufsize($size);
+    }
+
+    return 1;
+}
+
+sub _send_file_bufferized
+{
+    my ($self, @args) = @_;
+    return $self->_send_bufferized('f', @args);
+}
+
+sub _send_directory_bufferized
+{
+    my ($self, @args) = @_;
+    return $self->_send_bufferized('d', @args);
 }
 
 
@@ -191,8 +265,7 @@ sub _set_file
 	    return undef;
 	}
 
-	$connection->send('snapshot_set_file', undef,
-			  $id, $path, $content, %args);
+	$self->_send_file_bufferized($path, $content, %args);
 
 	$self->__fcontent()->{$path} = $content;
 	$self->__property()->{$path} = { %args };
@@ -233,7 +306,7 @@ sub _set_directory
 	    }
 	}
 
-	$connection->send('snapshot_set_directory', undef, $id, $path, %args);
+	$self->_send_directory_bufferized($path, %args);
 
 	$self->__dcontent()->{$path} = [];
 	$self->__property()->{$path} = { %args };
@@ -320,6 +393,11 @@ sub _flush
     my ($self) = @_;
     my $id = $self->__id();
     my $connection = $self->__connection();
+    my $size = $self->__bufsize();
+
+    if ($size > 0) {
+	$self->_flush_buffer();
+    }
 
     return $connection->call('snapshot_flush', $id);
 }
