@@ -30,17 +30,6 @@ sub __id
     return $self->{'__id'};
 }
 
-sub __pcache
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__pcache'} = $value;
-    }
-
-    return $self->{'__pcache'};
-}
-
 
 sub _new
 {
@@ -53,7 +42,6 @@ sub _new
 
     $self->__path($path);
     $self->__id($id);
-    $self->__pcache({});
 
     return $self;
 }
@@ -147,17 +135,18 @@ sub _date
 sub __set_properties
 {
     my ($self, $path, %args) = @_;
-    my $pcache = $self->__pcache();
     my $hash = md5_hex($path);
-    my ($key, $value, $text);
+    my $ppath = $self->__path_property() . '/' . $hash;
+    my ($key, $value, $fh);
 
-    $text = '';
+    if (!open($fh, '>', $ppath)) { return undef; }
+
     foreach $key (keys(%args)) {
 	$value = $args{$key};
-	$text .= sprintf("%s => %d:%s\n", $key, length($value), $value);
+	printf($fh "%s => %d:%s\n", $key, length($value), $value);
     }
 
-    $pcache->{$hash} = $text;
+    close($fh);
     return 1;
 }
 
@@ -232,89 +221,49 @@ sub _get_directory
     return \@entries;
 }
 
-sub __parse_properties
-{
-    my ($self, $text) = @_;
-    my ($line, $key, $value, $length, %properties);
-    my $append = 0;
-
-    foreach $line (split("\n", $text)) {
-	if (defined($value) && length($value) < $length) {
-	    $value .= "\n" . $line;
-	} else {
-	    if (!($line =~ /^(\S+) => (.*)$/)) {
-		return undef;
-	    }
-	
-	    ($key, $value) = ($1, $2);
-
-	    if (!($value =~ /^(\d+):(.*)$/)) {
-		return undef;
-	    }
-
-	    ($length, $value) = ($1, $2);
-	}
-
-	if (length($value) != $length) {
-	    return undef;
-	}
-
-	$properties{$key} = $value;
-	$value = undef;
-    }
-
-    return \%properties;
-}
-
 sub _get_properties
 {
     my ($self, $path, @err) = @_;
     my $hash = md5_hex($path);
-    my $pcache = $self->__pcache();
-    my ($ppath, $text, $properties, $fh);
+    my $ppath = $self->__path_property() . '/' . $hash;
+    my ($line, $key, $value, $length, $fh);
+    my %properties;
 
-    if (!defined($text = $pcache->{$hash})) {
-	$ppath = $self->__path_property() . '/' . $hash;
+    if (!open($fh, '<', $ppath)) { return undef; }
+    
+    while (defined($line = <$fh>)) {
+	chomp($line);
+	
+	if (!($line =~ /^(\S+) => (.*)$/)) { goto err; }
+	($key, $value) = ($1, $2);
 
-	if (!open($fh, '<', $ppath)) {
-	    return undef;
-	} else {
-	    local $/ = undef;
-	    $text = <$fh>;
-	    close($fh);
+	if (!($value =~ /^(\d+):(.*)$/)) { close($fh); goto err; }
+	($length, $value) = ($1, $2);
+
+	while (length($value) < $length && defined($line = <$fh>)) {
+	    chomp($line);
+	    $value .= "\n" . $line;
 	}
+
+	if (!defined($line) || length($value) != $length) { goto err; }
+
+	$properties{$key} = $value;
     }
 
-    return $self->__parse_properties($text);
+    close($fh);
+    return \%properties;
+  err:
+    close($fh);
+    return undef;
 }
 
 sub _flush
 {
     my ($self) = @_;
-    my $pcache = $self->__pcache();
-    my $ppath = $self->__path_property() . '/';
-    my ($hash, $text, $fh, $path, $ret, $rem);
 
-    $ret = 1;
-    $rem = {};
+    # nothing to do
 
-    foreach $hash (keys(%$pcache)) {
-	$text = $pcache->{$hash};
-
-	$path = $ppath . $hash;
-	if (!open($fh, '>', $path)) {
-	    $ret = 0;
-	    $rem->{$hash} = $text;
-	    next;
-	}
-
-	printf($fh "%s", $text);
-	close($fh);
-    }
-
-    $self->__pcache($rem);
-
-    return $ret;
+    return 1;
 }
 
 
