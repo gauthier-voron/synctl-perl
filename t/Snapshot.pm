@@ -16,74 +16,78 @@ our @EXPORT = qw(test_snapshot_count test_snapshot);
 
 sub test_snapshot_count
 {
-    return 23;
+    return 8  # snapshot#0
+	+ 12  # snapshot#1
+	+ 13; # snapshot#2
 }
 
 sub test_snapshot
 {
-    my ($snapshot) = @_;
-    my ($properties, $content);
+    my ($alloc, $check) = @_;
+    my ($snapshot, $content, $properties);
 
-    
-    ok(!$snapshot->init(), 'init on existing');
-
+    # snapshot#0
+    $snapshot = $alloc->();
     like($snapshot->date(), qr/^\d{4}(-\d\d){5}(-.*)?$/, 'date on existing');
-
-
     is($snapshot->get_directory('/'), undef, 'get root directory when empty');
-    is($snapshot->get_file('/toto'), undef, 'get some file when empty');
-    is($snapshot->get_properties('/toto'), undef, 'get properties when empty');
-
-
-    is($snapshot->set_file('/toto', ''), undef,'set some file when no parent');
+    is($snapshot->get_file('/a'), undef, 'get some file when empty');
+    is($snapshot->get_properties('/'), undef, 'get dir properties on empty');
+    is($snapshot->get_properties('/a'), undef, 'get file properties on empty');
+    is($snapshot->set_file('/a', ''), undef,'set some file when no parent');
     is($snapshot->set_file('/', ''), undef, 'set root as a file');
+    $check->($snapshot);
 
+    # snapshot#1
+    $snapshot = $alloc->();
     ok($snapshot->set_directory('/'), 'set root directory');
-    ok($snapshot->set_file('/file', ''), 'set empty file');
-
-    is($snapshot->set_directory('/'), undef, 'cannot set directory twice');
-    is($snapshot->set_directory('/file'), undef, 'cannot set file twice');
-
-
-    is($snapshot->set_file('/bad/', ''), undef, 'set trailing slash file');
-    is($snapshot->set_file('/./bad', ''), undef, 'set single-doted file');
-    is($snapshot->set_file('/../bad', ''), undef, 'set double-doted file');
-    is($snapshot->set_file('//bad', ''), undef, 'set double-slashed file');
-
-
-    ok($snapshot->set_directory('/dir',
-				MODE => 040755, USER => 'nobody',
-				GROUP => 'root', MTIME => 42, INODE => 23),
+    ok($snapshot->set_file('/a', ''), 'set empty file');
+    ok($snapshot->set_file('/b', 'b'), 'set full file');
+    ok($snapshot->set_directory('/c'), 'set directory');
+    ok($snapshot->set_file('/d', '', USER => 5), 'set file with properties');
+    ok($snapshot->set_directory('/e', USER => 6),
        'set directory with properties');
+    is($snapshot->set_directory('/'), undef, 'reset root directory');
+    is($snapshot->set_file('/a', ''), undef, 'reset empty file as empty');
+    is($snapshot->set_directory('/a'), undef, 'reset empty file as directory');
+    is($snapshot->set_file('/c', ''), undef, 'reset directory as empty file');
+    is($snapshot->set_directory('/c'), undef, 'reset directory as directory');
+    $check->($snapshot,
+	     [ '/'  , 'd'       , {           } ],
+	     [ '/a' , 'f' , ''  , {           } ],
+	     [ '/b' , 'f' , 'b' , {           } ],
+	     [ '/c' , 'd'       , {           } ],
+	     [ '/d' , 'f' , ''  , { USER => 5 } ],
+	     [ '/e' , 'd'       , { USER => 6 } ]);
 
-    $properties = $snapshot->get_properties('/dir');
-    is_deeply($properties, { MODE => 040755, USER => 'nobody', GROUP => 'root',
-			     MTIME => 42, INODE => 23 },
-	      'get directory properties');
-
-
-    ok($snapshot->set_file('/dir/file0', 'file 0 content',
-			   MODE => 0100644, USER => 'daemon', GROUP => 'adm',
-			   MTIME => 74, INODE => 19),
-       'set file with content and properties');
-
-    $properties = $snapshot->get_properties('/dir/file0');
-    is_deeply($properties, { MODE => 0100644, USER => 'daemon', GROUP => 'adm',
-			     MTIME => 74, INODE => 19 },
-	      'get file properties');
-
-    $content = $snapshot->get_file('/dir/file0');
-    is($content, 'file 0 content', 'get file content');
-
-
-    $content = $snapshot->get_directory('/dir/file0');
-    is($content, undef, 'get directory content on file');
-
-    $content = $snapshot->get_directory('/dir');
-    is_deeply($content, [ 'file0' ], 'get directory content');
-
-    $content = $snapshot->get_file('/dir');
-    is_deeply($content, undef, 'get file content on directory');
+    # snapshot#2
+    $snapshot = $alloc->(
+	[ '/'  , 'd'       , { USER => 0 } ],
+	[ '/a' , 'f' , ''  , { USER => 1 } ],
+	[ '/b' , 'f' , 'b' , { USER => 2 } ],
+	[ '/c' , 'd'       , { USER => 3 } ]);
+    is($snapshot->get_file('/'), undef, 'get file on root directory');
+    is_deeply([ sort { $a cmp $b } @{$snapshot->get_directory('/')} ],
+	      [ 'a' , 'b' , 'c' ], 'get directory on root directory');
+    is_deeply($snapshot->get_properties('/'), { USER => 0 },
+	      'get properties on root directory');
+    is($snapshot->get_file('/a'), '', 'get file on empty file');
+    is($snapshot->get_directory('/a'), undef, 'get directory on empty file');
+    is_deeply($snapshot->get_properties('/a'), { USER => 1 },
+	      'get properties on empty file');
+    is($snapshot->get_file('/b'), 'b', 'get file on full file');
+    is($snapshot->get_directory('/a'), undef, 'get directory on full file');
+    is_deeply($snapshot->get_properties('/b'), { USER => 2 },
+	      'get properties on full file');
+    is($snapshot->get_file('/c'), undef, 'get file on directory');
+    is_deeply($snapshot->get_directory('/c'), [ ],
+	      'get directory on directory');
+    is_deeply($snapshot->get_properties('/c'), { USER => 3 },
+	      'get properties on directory');
+    $check->($snapshot,
+	     [ '/'  , 'd'       , { USER => 0 } ],
+	     [ '/a' , 'f' , ''  , { USER => 1 } ],
+	     [ '/b' , 'f' , 'b' , { USER => 2 } ],
+	     [ '/c' , 'd'       , { USER => 3 } ]);
 }
 
 

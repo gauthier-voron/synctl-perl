@@ -138,18 +138,26 @@ sub _new
 sub __load_file
 {
     my ($self, $path) = @_;
-    $self->__load_file($path);
+    my $content = $self->get_file($path);
+    my $props = $self->get_properties($path);
+
+    $self->__fcontent()->{$path} = $content;
+    $self->__property()->{$path} = $props;
 }
 
 sub __load_directory
 {
     my ($self, $path) = @_;
     my ($children, $child, $sep);
+    my $props = $self->get_properties($path);
 
     $children = $self->get_directory($path);
     if (!defined($children)) {
 	return;
     }
+
+    $self->__dcontent()->{$path} = $children;
+    $self->__property()->{$path} = $props;
 
     if ($path ne '/') {
 	$sep = '/';
