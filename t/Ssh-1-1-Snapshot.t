@@ -175,7 +175,7 @@ sub check_entry_count
     $list = $snapshot->get_directory($root);
     if (defined($list)) {
 	foreach $elem (@$list) {
-	    $count += check_entry_count($snapshot, $root . $elem);
+	    $count += check_entry_count($snapshot, $root . $sep . $elem);
 	}
     }
 

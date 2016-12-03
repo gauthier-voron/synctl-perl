@@ -18,13 +18,14 @@ sub test_snapshot_count
 {
     return 8  # snapshot#0
 	+ 12  # snapshot#1
-	+ 13; # snapshot#2
+	+ 13  # snapshot#2
+        +  1; # snapshot#3
 }
 
 sub test_snapshot
 {
     my ($alloc, $check) = @_;
-    my ($snapshot, $content, $properties);
+    my ($snapshot, $content, $properties, $dir, $file, @list);
 
     # snapshot#0
     $snapshot = $alloc->();
@@ -88,6 +89,39 @@ sub test_snapshot
 	     [ '/a' , 'f' , ''  , { USER => 1 } ],
 	     [ '/b' , 'f' , 'b' , { USER => 2 } ],
 	     [ '/c' , 'd'       , { USER => 3 } ]);
+
+    # snapshot#3
+    $snapshot = $alloc->([ '/' , 'd' , {} ]);
+    $snapshot->set_directory('/usr');
+    $snapshot->set_directory('/usr/local');
+    $snapshot->set_directory('/usr/local/share');
+    $snapshot->set_directory('/usr/local/share/chroot');
+    $snapshot->set_directory('/usr/local/share/chroot/usr');
+    @list = (
+	[ '/'                           , 'd' , {} ],
+	[ '/usr'                        , 'd' , {} ],
+	[ '/usr/local'                  , 'd' , {} ],
+	[ '/usr/local/share'            , 'd' , {} ],
+	[ '/usr/local/share/chroot'     , 'd' , {} ],
+	[ '/usr/local/share/chroot/usr' , 'd' , {} ]
+	);
+    foreach $dir (qw(bin boot dev etc home lib lib64 mnt opt proc root)) {
+	$snapshot->set_directory('/usr/local/share/chroot/usr/' . $dir,
+				 MODE => 040755, USER => 'root',
+				 GROUP => 'wheel');
+	push(@list, [ '/usr/local/share/chroot/usr/' . $dir , 'd' ,
+		      { MODE => 040755, USER => 'root', GROUP => 'wheel'} ]);
+	foreach $file (qw(README INSTALL LICENCE Makefile configure HOWTO
+		       Makefile.in main.c Main.hs main.pl main.cxx main.py)) {
+	    $snapshot->set_file('/usr/local/share/chroot/usr/' . $dir .
+				'/' . $file, $file, MODE => 0100644,
+				USER => 'root', GROUP => 'wheel');
+	push(@list, [ '/usr/local/share/chroot/usr/' . $dir . '/' . $file ,
+		      'f' , $file ,
+		      { MODE => 0100644, USER => 'root', GROUP => 'wheel'} ]);
+	}
+    }
+    $check->($snapshot, @list);
 }
 
 
