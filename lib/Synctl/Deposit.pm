@@ -32,13 +32,14 @@ sub new
 }
 
 
-sub _init { confess('abstract method'); }
-sub _hash { confess('abstract method'); }
-sub _size { confess('abstract method'); }
-sub _get  { confess('abstract method'); }
-sub _put  { confess('abstract method'); }
-sub _send { confess('abstract method'); }
-sub _recv { confess('abstract method'); }
+sub _init  { confess('abstract method'); }
+sub _hash  { confess('abstract method'); }
+sub _size  { confess('abstract method'); }
+sub _get   { confess('abstract method'); }
+sub _put   { confess('abstract method'); }
+sub _send  { confess('abstract method'); }
+sub _recv  { confess('abstract method'); }
+sub _flush { confess('abstract method'); }
 
 
 sub init
@@ -139,6 +140,17 @@ sub recv
     }
 
     return $self->_recv($hash, $handler);
+}
+
+sub flush
+{
+    my ($self, @err) = @_;
+
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    return $self->_flush();
 }
 
 

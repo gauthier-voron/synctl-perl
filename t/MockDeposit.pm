@@ -138,6 +138,13 @@ sub _recv
     confess('test not implemented');
 }
 
+sub _flush
+{
+    my ($self) = @_;
+
+    return 1;
+}
+
 
 1;
 __END__

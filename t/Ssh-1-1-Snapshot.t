@@ -4,13 +4,91 @@ use strict;
 use warnings;
 
 use t::File;
+use t::MockDeposit;
 use t::Snapshot;
+use Synctl::FileControler;
 
-use Test::More tests => 1 + test_snapshot_count();;
+use Test::More tests => 3 + test_snapshot_count() * 2;
 
 BEGIN
 {
-    use_ok('Synctl::FileSnapshot');
+    use_ok('Synctl::Ssh::1::1::Controler');
+    use_ok('Synctl::Ssh::1::1::Server');
+    use_ok('Synctl::Ssh::1::1::Snapshot');
+}
+
+
+my (@pids);
+my (@snapshots);
+my (@pipes);
+
+
+sub mkserver
+{
+    my ($parent_in, $child_out);
+    my ($parent_out, $child_in);
+    my ($pid, $server, $controler);
+    my $box = mktroot();
+    my $path = $box . '/deposit';
+    my $deposit = Synctl::FileDeposit->new($path);
+    my $snapshot;
+
+    $controler = Synctl::FileControler->new($deposit, $box);
+    $snapshot = $controler->create();
+
+    if (!pipe($parent_in, $child_out)) { die ($!); }
+    if (!pipe($child_in, $parent_out)) { die ($!); }
+
+    if (($pid = fork()) == 0) {
+	close($child_in);
+	close($child_out);
+
+	# Disable the testing for the child process so we aren't annoyed by
+	# unwanted output or warning for unexpected termination
+
+	Test::More->builder()->no_ending(1);
+
+	$server = Synctl::Ssh::1::1::Server->new
+	    ($parent_in, $parent_out, $controler);
+	$server->serve();
+	exit (0);
+    } else {
+	close($parent_in);
+	close($parent_out);
+
+	# Set a handler to avoid the test script to be blocked indefinitely
+	# on communication
+
+	$SIG{ALRM} = sub {
+	    diag("Timeout fired. All remaining tests fail.");
+	    kill('KILL', $pid);
+	    die (255);
+	};
+
+	$controler = Synctl::Ssh::1::1::Controler->new($child_in, $child_out);
+
+	push(@pids, $pid);
+	push(@snapshots, $snapshot);
+	push(@pipes, $child_in, $child_out);
+
+	return $controler;
+    }
+}
+
+sub waitservers
+{
+    my ($pid, $fh);
+
+    foreach $fh (@pipes) {
+	close($fh);
+    }
+
+    foreach $pid (@pids) {
+	waitpid($pid, 0);
+    }
+
+    @pids = ();
+    @pipes = ();
 }
 
 
@@ -19,9 +97,10 @@ sub alloc
     my (@specs) = @_;
     my ($box, $snapshot, $spec);
     my ($path, $type, $content, $props, @rem);
+    my $controler;
 
-    $box = mktroot();
-    $snapshot = Synctl::FileSnapshot->new($box . '/snapshot', '0' x 32);
+    $controler = mkserver();
+    $snapshot = pop(@snapshots);
     $snapshot->init();
 
     foreach $spec (@specs) {
@@ -36,6 +115,10 @@ sub alloc
 	}
     }
 
+    $snapshot->flush();
+    push(@snapshots, $snapshot);
+
+    $snapshot = ($controler->snapshot())[0];
     return $snapshot;
 }
 
@@ -105,6 +188,9 @@ sub check
     my ($spec, $path, $type, $content, $props, @rem);
     my (@checked, $sprops, $size);
 
+    $snapshot->flush();
+    $snapshot = pop(@snapshots);
+
     foreach $spec (@specs) {
 	($path, $type, @rem) = @$spec;
 	push(@checked, $path);
@@ -116,7 +202,6 @@ sub check
 		is($snapshot->get_file($path), $content, 'snapshot content');
 		return;
 	    }
-
 	} elsif ($type eq 'd') {
 	    ($props) = @rem;
 
@@ -138,7 +223,13 @@ sub check
 }
 
 
+alarm(3);
+
 test_snapshot(\&alloc, \&check);
+
+test_snapshot(sub { my $t = alloc(@_); $t->load(); return $t; }, \&check);
+
+waitservers();
 
 
 1;

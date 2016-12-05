@@ -175,6 +175,7 @@ sub snapshots
     sub _get_file       { return shift()->__intern()->_get_file(@_);       }
     sub _get_directory  { return shift()->__intern()->_get_directory(@_);  }
     sub _get_properties { return shift()->__intern()->_get_properties(@_); }
+    sub _flush          { return shift()->__intern()->_flush();            }
 
     sub _set_file
     {

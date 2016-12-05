@@ -3,14 +3,14 @@
 use strict;
 use warnings;
 
-use Test::More tests => 54;
+use Test::More tests => 43;
 
 use t::File;
 
 
 BEGIN
 {
-    use_ok('Synctl::SshProtocol');
+    use_ok('Synctl::Ssh::1::1::Codec');
 }
 
 
@@ -102,47 +102,47 @@ $ref = { undef => 'b' }; is_deeply(decode('h2:S5:undefS1:b'), $ref,
 				   'decode undef key hash ref');
 
 
-if (!open($fh, '>', $box . '/input')) { die ($!); }
-printf($fh '7:a1:S1:a');                                       # ('a')
-printf($fh '11:a2:S1:aS1:b');                                  # ('a', 'b')
-printf($fh '14:a1:a2:S1:aS1:b');                               # ([ 'a', 'b' ])
-printf($fh '4:a1:U');                                          # (undef)
-printf($fh '3:a0:');                                           # ()
-printf($fh '75:a2:S32:d9b83e346cf02111689e63b90e284b4dS32:886062be7d998bc22768e231822ec025');
-close($fh);
+# if (!open($fh, '>', $box . '/input')) { die ($!); }
+# printf($fh '7:a1:S1:a');                                       # ('a')
+# printf($fh '11:a2:S1:aS1:b');                                  # ('a', 'b')
+# printf($fh '14:a1:a2:S1:aS1:b');                               # ([ 'a', 'b' ])
+# printf($fh '4:a1:U');                                          # (undef)
+# printf($fh '3:a0:');                                           # ()
+# printf($fh '75:a2:S32:d9b83e346cf02111689e63b90e284b4dS32:886062be7d998bc22768e231822ec025');
+# close($fh);
 
 
-if (!open($in, '<', $box . '/input')) { die ($!); }
-if (!open($out, '>', $box . '/output')) { die ($!); }
-if (!open($fh, '<', $box . '/output')) { die ($!); }
+# if (!open($in, '<', $box . '/input')) { die ($!); }
+# if (!open($out, '>', $box . '/output')) { die ($!); }
+# if (!open($fh, '<', $box . '/output')) { die ($!); }
 
-ok($connection = Synctl::SshProtocol->connect($in, $out), 'creation unbound');
-
-
-is_deeply([ $connection->recv() ], [ 'a' ], 'recv single scalar');
-is_deeply([ $connection->recv() ], [ 'a', 'b' ], 'recv multiple scalar');
-is_deeply([ $connection->recv() ], [ [ 'a', 'b' ] ], 'recv single array ref');
-is_deeply([ $connection->recv() ], [ undef ], 'recv undef');
-is_deeply([ $connection->recv() ], [ ], 'recv empty');
+# ok($connection = Synctl::SshProtocol->connect($in, $out), 'creation unbound');
 
 
-$connection->send('a');              push(@arr, <$fh>);
-$connection->send('a', 'b');         push(@arr, <$fh>);
-$connection->send([ 'a', 'b' ]);     push(@arr, <$fh>);
-$connection->send(undef);            push(@arr, <$fh>);
-$connection->send();                 push(@arr, <$fh>);
+# is_deeply([ $connection->recv() ], [ 'a' ], 'recv single scalar');
+# is_deeply([ $connection->recv() ], [ 'a', 'b' ], 'recv multiple scalar');
+# is_deeply([ $connection->recv() ], [ [ 'a', 'b' ] ], 'recv single array ref');
+# is_deeply([ $connection->recv() ], [ undef ], 'recv undef');
+# is_deeply([ $connection->recv() ], [ ], 'recv empty');
 
 
-close($in);
-close($out);
-close($fh);
+# $connection->send('a');              push(@arr, <$fh>);
+# $connection->send('a', 'b');         push(@arr, <$fh>);
+# $connection->send([ 'a', 'b' ]);     push(@arr, <$fh>);
+# $connection->send(undef);            push(@arr, <$fh>);
+# $connection->send();                 push(@arr, <$fh>);
 
 
-is(shift(@arr), '7:a1:S1:a', 'send single scalar');
-is(shift(@arr), '11:a2:S1:aS1:b', 'send multiple scalar scalar');
-is(shift(@arr), '14:a1:a2:S1:aS1:b', 'send single array ref');
-is(shift(@arr), '4:a1:U', 'send undef');
-is(shift(@arr), '3:a0:', 'send empty');
+# close($in);
+# close($out);
+# close($fh);
+
+
+# is(shift(@arr), '7:a1:S1:a', 'send single scalar');
+# is(shift(@arr), '11:a2:S1:aS1:b', 'send multiple scalar scalar');
+# is(shift(@arr), '14:a1:a2:S1:aS1:b', 'send single array ref');
+# is(shift(@arr), '4:a1:U', 'send undef');
+# is(shift(@arr), '3:a0:', 'send empty');
 
 
 1;
