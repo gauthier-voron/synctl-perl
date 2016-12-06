@@ -7,8 +7,8 @@ t/Controler.pm
 t/Deposit.pm
 t/File.pm
 t/FileControler.t
-t/FileDeposit.t
-t/FileSnapshot.t
+t/File-1-Deposit.t
+t/File-1-Snapshot.t
 t/MockDeposit.pm
 t/MockSnapshot.pm
 t/Profile.t
@@ -29,9 +29,10 @@ script/synconvert
 lib/Synctl.pm
 lib/Synctl/Controler.pm
 lib/Synctl/Deposit.pm
+lib/Synctl/File.pm
 lib/Synctl/FileControler.pm
-lib/Synctl/FileDeposit.pm
-lib/Synctl/FileSnapshot.pm
+lib/Synctl/File/1/Deposit.pm
+lib/Synctl/File/1/Snapshot.pm
 lib/Synctl/Profile.pm
 lib/Synctl/Receiver.pm
 lib/Synctl/Seeker.pm

@@ -10,7 +10,7 @@ use Fcntl qw(:mode);
 use Scalar::Util qw(blessed);
 
 use Synctl qw(:error :verbose);
-use Synctl::FileSnapshot;
+use Synctl::File;
 
 
 sub __deposit
@@ -74,7 +74,7 @@ sub snapshot
     }
 
     foreach $id (grep { /^[0-9a-f]{32}$/ } readdir($dh)) {
-	$snapshot = Synctl::FileSnapshot->new($root . '/' . $id, $id);
+	$snapshot = Synctl::File->snapshot($root . '/' . $id, $id);
 	
 	next if (!defined($snapshot->date()));
 	
@@ -97,7 +97,7 @@ sub create
     $id = md5_hex(rand(1 << 32));
 
     $root = $self->__snaproot();
-    $snapshot = Synctl::FileSnapshot->new($root . '/' . $id, $id);
+    $snapshot = Synctl::File->snapshot($root . '/' . $id, $id);
     $snapshot->init();
 
     return $snapshot;
@@ -192,7 +192,7 @@ sub delete
 
     if (!defined($snapshot)) {
 	return throw(ESYNTAX, undef);
-    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::FileSnapshot')) {
+    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::Snapshot')) {
 	return throw(EINVLD, $snapshot);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
