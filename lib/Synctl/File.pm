@@ -6,12 +6,6 @@ use warnings;
 use Synctl qw(:error);
 
 
-require Exporter;
-
-our @ISA = qw(Exporter);
-
-our @EXPORT = qw(deposit snapshot);
-
 our @VERSIONS = qw(1);
 
 

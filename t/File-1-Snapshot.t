@@ -10,7 +10,7 @@ use Test::More tests => 1 + test_snapshot_count();;
 
 BEGIN
 {
-    use_ok('Synctl::FileSnapshot');
+    use_ok('Synctl::File::1::Snapshot');
 }
 
 
@@ -21,7 +21,7 @@ sub alloc
     my ($path, $type, $content, $props, @rem);
 
     $box = mktroot();
-    $snapshot = Synctl::FileSnapshot->new($box . '/snapshot', '0' x 32);
+    $snapshot = Synctl::File::1::Snapshot->new($box . '/snapshot', '0' x 32);
     $snapshot->init();
 
     foreach $spec (@specs) {
