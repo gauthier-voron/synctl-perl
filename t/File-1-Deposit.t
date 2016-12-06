@@ -11,7 +11,7 @@ use Test::More tests => 6 + test_deposit_count();
 
 BEGIN
 {
-    use_ok('Synctl::FileDeposit');
+    use_ok('Synctl::File::1::Deposit');
 }
 
 
@@ -21,7 +21,7 @@ sub alloc
     my $box = mktroot();
     my $path = $box . '/deposit';
     my ($content, @refs);
-    my $deposit = Synctl::FileDeposit->new($path);
+    my $deposit = Synctl::File::1::Deposit->new($path);
 
     $deposit->init();
 
@@ -64,8 +64,8 @@ sub check
 
 my $box = mktroot();
 my $path = $box . '/deposit';
-my $deposit = Synctl::FileDeposit->new($path);
-my $eviltwin = Synctl::FileDeposit->new($path);
+my $deposit = Synctl::File::1::Deposit->new($path);
+my $eviltwin = Synctl::File::1::Deposit->new($path);
 
 
 ok($deposit, 'deposit instanciation');

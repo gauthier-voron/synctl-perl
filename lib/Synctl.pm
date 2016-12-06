@@ -70,7 +70,7 @@ our $MAILTO  = 'gauthier.voron@mnesic.fr';
 
 
 require Synctl::FileControler;
-require Synctl::FileDeposit;
+require Synctl::File;
 require Synctl::Receiver;
 require Synctl::Seeker;
 require Synctl::Sender;
@@ -284,7 +284,7 @@ sub init
 	}
     }
 
-    $deposit = Synctl::FileDeposit->new($path . '/deposit');
+    $deposit = Synctl::File->deposit($path . '/deposit');
     if (!defined($deposit->init())) {
 	return undef;
     }
@@ -337,7 +337,7 @@ sub __file_controler
 	return throw(EINVLD, $path);
     }
 
-    if (!defined($deposit = Synctl::FileDeposit->new($deposit_path))) {
+    if (!defined($deposit = Synctl::File->deposit($deposit_path))) {
 	return undef;
     }
     

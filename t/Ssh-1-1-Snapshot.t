@@ -6,6 +6,7 @@ use warnings;
 use t::File;
 use t::MockDeposit;
 use t::Snapshot;
+use Synctl::File;
 use Synctl::FileControler;
 
 use Test::More tests => 3 + test_snapshot_count() * 2;
@@ -30,7 +31,7 @@ sub mkserver
     my ($pid, $server, $controler);
     my $box = mktroot();
     my $path = $box . '/deposit';
-    my $deposit = Synctl::FileDeposit->new($path);
+    my $deposit = Synctl::File->deposit($path);
     my $snapshot;
 
     $controler = Synctl::FileControler->new($deposit, $box);

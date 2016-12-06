@@ -5,8 +5,8 @@ use warnings;
 
 use t::File;
 use Synctl;
+use Synctl::File;
 use Synctl::FileControler;
-use Synctl::FileDeposit;
 use Synctl::Ssh::1::1::Controler;
 use Synctl::Ssh::1::1::Server;
 
@@ -32,7 +32,7 @@ sub mkserver
     my ($pid, $server, $controler);
     my $box = mktroot();
     my $path = $box . '/deposit';
-    my $deposit = Synctl::FileDeposit->new($path);
+    my $deposit = Synctl::File->deposit($path);
 
     if (!pipe($parent_in, $child_out)) { die ($!); }
     if (!pipe($child_in, $parent_out)) { die ($!); }
