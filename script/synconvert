@@ -76,8 +76,12 @@ sub snapshots
     {
 	my ($self, $path, $ohandler, $ehandler) = @_;
 	my $fpath = $self->__path() . $path;
-	my @xattrs = split(/\n/, `getfattr --dump "$fpath" 2>/dev/null`);
-	my ($rsync, $mode, $user, $group);
+	my (@xattrs, $rsync, $mode, $user, $group, $output);
+
+	$output = `getfattr --dump "$fpath" 2>/dev/null`;
+	if (defined($output)) {
+	    @xattrs = split(/\n/, $output);
+	}
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
 	if (@xattrs) {
@@ -104,8 +108,12 @@ sub snapshots
     {
 	my ($self, $path, $ohandler, $ehandler) = @_;
 	my $dpath = $self->__path() . $path;
-	my @xattrs = split(/\n/, `getfattr --dump "$dpath" 2>/dev/null`);
-	my ($rsync, $mode, $user, $group);
+	my (@xattrs, $rsync, $mode, $user, $group, $output);
+
+	$output = `getfattr --dump "$dpath" 2>/dev/null`;
+	if (defined($output)) {
+	    @xattrs = split(/\n/, $output);
+	}
 
 	@xattrs = grep { /^user.rsync.%stat/ } @xattrs;
 	if (@xattrs) {
