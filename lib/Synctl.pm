@@ -64,19 +64,17 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw(
 );
 
-our $VERSION = '1.0.1';
+our $VERSION = '1.0.2';
 our $AUTHOR  = 'Gauthier Voron';
 our $MAILTO  = 'gauthier.voron@mnesic.fr';
 
 
 require Synctl::FileControler;
-require Synctl::FileDeposit;
+require Synctl::File;
 require Synctl::Receiver;
 require Synctl::Seeker;
 require Synctl::Sender;
-require Synctl::SshControler;
-require Synctl::SshProtocol;
-require Synctl::SshServer;
+require Synctl::Ssh;
 require Synctl::Verbose;
 
 
@@ -286,7 +284,7 @@ sub init
 	}
     }
 
-    $deposit = Synctl::FileDeposit->new($path . '/deposit');
+    $deposit = Synctl::File->deposit($path . '/deposit');
     if (!defined($deposit->init())) {
 	return undef;
     }
@@ -339,7 +337,7 @@ sub __file_controler
 	return throw(EINVLD, $path);
     }
 
-    if (!defined($deposit = Synctl::FileDeposit->new($deposit_path))) {
+    if (!defined($deposit = Synctl::File->deposit($deposit_path))) {
 	return undef;
     }
     
@@ -351,7 +349,7 @@ sub __ssh_controler
     my ($location, @args) = @_;
     my ($address, $path, %opts, $opt);
     my ($pid, $child_in, $child_out, $parent_in, $parent_out);
-    my ($connection, $controler);
+    my ($controler, $prevsig);
     my @lcommand = qw(ssh);
     my @rcommand = qw(synctl serve);
 
@@ -408,22 +406,23 @@ sub __ssh_controler
 	close($parent_out);
     }
 
-    $connection = Synctl::SshProtocol->connect($child_in, $child_out);
-    if (!defined($connection)) {
-	goto err;
-    }
-    
-    $controler = Synctl::SshControler->new($connection);
+    $controler = Synctl::Ssh->controler($child_in, $child_out);
     if (!defined($controler)) {
 	goto err;
     }
 
     return $controler;
+    
   err:
+    $prevsig = $SIG{PIPE};
+    $SIG{PIPE} = sub {};
+    
     close($child_in);
     close($child_out);
     kill('TERM', $pid);
     waitpid($pid, 0);
+    
+    $SIG{PIPE} = $prevsig;
     return undef;
 }
 
@@ -458,7 +457,7 @@ sub controler
 sub serve
 {
     my ($controler, @err) = @_;
-    my ($connection, $server);
+    my ($server);
 
     if (!defined($controler)) {
 	return throw(ESYNTAX, undef);
@@ -468,12 +467,7 @@ sub serve
 	return throw(EINVLD, $controler);
     }
 
-    $connection = Synctl::SshProtocol->connect(\*STDIN, \*STDOUT);
-    if (!defined($connection)) {
-	return undef;
-    }
-
-    $server = Synctl::SshServer->new($connection, $controler);
+    $server = Synctl::Ssh->server(\*STDIN, \*STDOUT, $controler);
     if (!defined($server)) {
 	return undef;
     }

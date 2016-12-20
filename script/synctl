@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Getopt::Long qw(GetOptionsFromArray);
+use Text::ParseWords;
 
 use Synctl qw(:verbose);
 use Synctl::Profile;
@@ -270,7 +271,8 @@ sub list_usage
     return <<"EOF";
 Usage: $PROGRAM list [--older=<date>] [--newer=<date>] [--date=<regex>]
        [--invert] [--contain=<path>] [--reverse] [--format=<format>]
-       [--directory=<path>[:<path>...]] [--server=<location> | <profile>]
+       [--directory=<path>[:<path>...]] [--ssh-local=<command>]
+       [--ssh-remote=<command>] [--server=<location> | <profile>]
 
 Print the snapshots of the specified server. The server is specified either by
 a profile containing the location of the server or with the '--server' option.
@@ -333,6 +335,14 @@ Options:
     %M    Minute of the snapshot creation (00 .. 59)
     %S    Second of the snapshot creation (00 .. 59)
     %u    Unique identifier of the snapshot (32 x 0..f)
+
+  --ssh-local=<command>                 Use the specified command on the local
+                                        side when accessing an ssh server.
+                                        Default is 'ssh'.
+
+  --ssh-remote=<command>                Use the specified command on the remote
+                                        side when accessing an ssh server.
+                                        Default is 'synctl serve'.
 EOF
 }
 
@@ -340,7 +350,7 @@ sub list_main
 {
     my ($profile_name, @err);
     my (@profile_paths, $older, $newer, $date, $invert, @contains, $reverse);
-    my ($server, $format);
+    my ($server, $format, $sshlocal, $sshremote, %opts);
     my ($profile, $ndate, $path, $text, $controler, @snapshots, $snapshot);
     my ($Y, $m, $d, $H, $M, $S, $u);
 
@@ -359,7 +369,9 @@ sub list_main
 	'r|reverse'     => \$reverse,
 	'f|format=s'    => \$format,
 	's|server=s'    => \$server,
-	'v|verbose:-1'  => \&verbose
+	'v|verbose:-1'  => \&verbose,
+	'ssh-local=s'   => \$sshlocal,
+	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
@@ -398,7 +410,10 @@ sub list_main
 	}
     }
 
-    $controler = Synctl::controler($server);
+    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
+    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
+
+    $controler = Synctl::controler($server, %opts);
     @snapshots = $controler->snapshot();
 
     @snapshots = grep {
@@ -446,7 +461,7 @@ sub send_usage
     return <<"EOF";
 Usage: $PROGRAM send [--client=<path>] [--server=<location>]
        [--include=<filter>] [--exclude=<path>] [--directory=<path>[:<path>...]]
-       <profile>
+       [--ssh-local=<command>] [--ssh-remote=<command>] <profile>
 
 Send a new snapshot of the given client to the given server. Both the client
 and the server are either specified by the profile or by the '--client' and
@@ -490,6 +505,14 @@ Options:
 
   -e <filter>, --exclude=<filter>       Indicate the files matching the filter
                                         should be excluded of the snapshot.
+
+  --ssh-local=<command>                 Use the specified command on the local
+                                        side when accessing an ssh server.
+                                        Default is 'ssh'.
+
+  --ssh-remote=<command>                Use the specified command on the remote
+                                        side when accessing an ssh server.
+                                        Default is 'synctl serve'.
 EOF
 }
 
@@ -497,6 +520,7 @@ sub send_main
 {
     my ($profile_name, @err);
     my (@profile_paths, $client, $server, @filters);
+    my ($sshlocal, $sshremote, %opts);
     my ($profile, $controler);
 
     $SIG{__WARN__} = \&opterr;
@@ -508,7 +532,9 @@ sub send_main
 	's|server=s'    => \$server,
 	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
 	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
-	'v|verbose:-1'   => \&verbose
+	'v|verbose:-1'  => \&verbose,
+	'ssh-local=s'   => \$sshlocal,
+	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
@@ -539,7 +565,10 @@ sub send_main
     notify(DEBUG, ICONFIG, 'filters',
 	   '[' . join(', ', map { "'$_'" } @{$profile->filters()}) . ']');
 
-    $controler = Synctl::controler($server);
+    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
+    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
+
+    $controler = Synctl::controler($server, %opts);
     Synctl::send($client, $controler, $profile->filter());
 
     return 0;
@@ -551,7 +580,7 @@ sub recv_usage
     return <<"EOF";
 Usage: $PROGRAM recv [--client=<path>] [--server=<location>]
        [--include=<filter>] [--exclude=<path>] [--directory=<path>[:<path>...]]
-       <profile> [<snapshot>]
+       [--ssh-local=<command>] [--ssh-remote=<command>] <profile> [<snapshot>]
 
 Receive a snapshot from a specified server to a client path. Both the client
 and the server are either specified by the profile or by the '--client' and
@@ -598,6 +627,14 @@ Options:
 
   -e <filter>, --exclude=<filter>       Indicate the files matching the filter
                                         should be excluded of the snapshot.
+
+  --ssh-local=<command>                 Use the specified command on the local
+                                        side when accessing an ssh server.
+                                        Default is 'ssh'.
+
+  --ssh-remote=<command>                Use the specified command on the remote
+                                        side when accessing an ssh server.
+                                        Default is 'synctl serve'.
 EOF
 }
 
@@ -605,6 +642,7 @@ sub recv_main
 {
     my ($profile_name, $snapshot_id, @err);
     my (@profile_paths, $client, $server, @filters);
+    my ($sshlocal, $sshremote, %opts);
     my ($profile, $controler, $ndate, $snapshot, @snapshots);
 
     $SIG{__WARN__} = \&opterr;
@@ -616,7 +654,9 @@ sub recv_main
 	's|server=s'    => \$server,
 	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
 	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
-	'v|verbose:-1'  => \&verbose
+	'v|verbose:-1'  => \&verbose,
+	'ssh-local=s'   => \$sshlocal,
+	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
@@ -647,7 +687,10 @@ sub recv_main
     notify(DEBUG, ICONFIG, 'filters',
 	   '[' . join(', ', map { "'$_'" } @{$profile->filters()}) . ']');
 
-    $controler = Synctl::controler($server);
+    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
+    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
+
+    $controler = Synctl::controler($server, %opts);
     @snapshots = $controler->snapshot();
     @snapshots = sort { $a->date() le $b->date() } @snapshots;
 
@@ -681,6 +724,7 @@ sub rm_usage
 {
     return <<"EOF";
 Usage: $PROGRAM rm [--directory=<path>[:<path>]] [--force]
+       [--ssh-local=<command>] [--ssh-remote=<command>]
        [--server=<location> | <profile>] <snapshot> [<snapshots...>]
 
 Remove one or several snapshots from the specified server. The server can be
@@ -706,13 +750,21 @@ Options:
 
   -f, --force                           Avoid to ask confirmation before to
                                         remove the snapshots.
+
+  --ssh-local=<command>                 Use the specified command on the local
+                                        side when accessing an ssh server.
+                                        Default is 'ssh'.
+
+  --ssh-remote=<command>                Use the specified command on the remote
+                                        side when accessing an ssh server.
+                                        Default is 'synctl serve'.
 EOF
 }
 
 sub rm_main
 {
     my ($profile_name, @snapshot_ids);
-    my (@profile_paths, $server, $force);
+    my (@profile_paths, $server, $force, $sshlocal, $sshremote, %opts);
     my ($profile, $controler, $id, @snapshots, %selection, $answer);
 
     $SIG{__WARN__} = \&opterr;
@@ -722,7 +774,9 @@ sub rm_main
 	'C|directory=s' => \@profile_paths,
 	'f|force'       => \$force,
 	's|server=s'    => \$server,
-	'v|verbose:-1'  => \&verbose
+	'v|verbose:-1'  => \&verbose,
+	'ssh-local=s'   => \$sshlocal,
+	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
@@ -746,7 +800,10 @@ sub rm_main
 	notify(DEBUG, ICONFIG, 'server', $server);
     }
 
-    $controler = Synctl::controler($server);
+    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
+    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
+
+    $controler = Synctl::controler($server, %opts);
     @snapshots = $controler->snapshot();
 
     if (!@snapshots) {

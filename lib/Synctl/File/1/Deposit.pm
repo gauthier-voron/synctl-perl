@@ -1,4 +1,4 @@
-package Synctl::FileDeposit;
+package Synctl::File::1::Deposit;
 
 use parent qw(Synctl::Deposit);
 use strict;
@@ -43,6 +43,7 @@ sub _new
 sub _init
 {
     my ($self) = @_;
+    my ($fh);
 
     if (mkdir($self->__path())) {
 	notify(INFO, IFCREAT, $self->__path());
@@ -58,6 +59,14 @@ sub _init
     
     if (mkdir($self->__path_refcount())) {
 	notify(INFO, IFCREAT, $self->__path_refcount());
+    } else {
+	return 0;
+    }
+
+    if (open($fh, '>', $self->__path() . '/version')) {
+	notify(INFO, IFCREAT, $self->__path() . '/version');
+	printf($fh "1\n");
+	close($fh);
     } else {
 	return 0;
     }
@@ -242,6 +251,15 @@ sub _recv
     }
 
     close($fh);
+    return 1;
+}
+
+sub _flush
+{
+    my ($self) = @_;
+
+    # nothing to do
+
     return 1;
 }
 

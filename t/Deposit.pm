@@ -16,67 +16,112 @@ our @EXPORT = qw(test_deposit_count test_deposit);
 
 sub test_deposit_count
 {
-    return 21;
+    return 13  # deposit#0
+	+   5  # deposit#1
+	+   2  # deposit#2
+	+   2  # deposit#3
+	+   2  # deposit#4
+	+   7  # deposit#5
+	+   5  # deposit#6
+	+   7  # deposit#7
+	+   3  # deposit#8
+	+   6  # deposit#9
+	+   4; # deposit#10
 }
 
 sub test_deposit
 {
-    my ($deposit, $eviltwin) = @_;
-    my $box = mktroot();
-    my $file0 = mktfile($box . '/file0', CONTENT => "file\ncontent\n");
-    my $file1 = mktfile($box . '/file1');
-    my (@hashes, $hash0, $hash1);
-    my ($content, $fh, %cmphash);
+    my ($alloc, $check) = @_;
+    my ($deposit, @hashes, $hash0);
 
+    # deposit#0
+    $deposit = $alloc->();
+    is($deposit->get('0' x 32), undef, 'deposit#0 get');
+    is($deposit->put('0' x 32), undef, 'deposit#0 put');
+    like(($hash0=$deposit->send('a')),qr/^[0-9a-f]{32}$/,'deposit#0 send');
+    ok($deposit->get($hash0), 'deposit#0 get on exist 1');
+    ok($deposit->get($hash0), 'deposit#0 get on exist 2');
+    is($deposit->get('0' x 32), undef, 'deposit#0 get on unexist');
+    is($deposit->send('a'), $hash0, 'deposit#0 send on exist 3');
+    ok($deposit->put($hash0), 'deposit#0 put on exist 4');
+    ok($deposit->put($hash0), 'deposit#0 put on exist 3');
+    ok($deposit->put($hash0), 'deposit#0 put on exist 2');
+    is($deposit->put($hash0), 0, 'deposit#0 put on exist 1');
+    is($deposit->put($hash0), undef, 'deposit#0 put');
+    $check->($deposit);
 
-    ok($deposit->init(), 'init from nothing');
+    # deposit#1
+    $deposit = $alloc->();
+    like(($hash0=$deposit->send('a')),qr/^[0-9a-f]{32}$/,'deposit#1 send');
+    ok($deposit->get($hash0), 'deposit#1 get on exist 1');
+    ok($deposit->get($hash0), 'deposit#1 get on exist 2');
+    ok($deposit->put($hash0), 'deposit#1 put on exist 3');
+    $check->($deposit, 'a' => 2);
 
-    ok(!$deposit->init(), 'init on existing (same object)');
-    ok(!$eviltwin->init(), 'init on existing (different object)');
+    # deposit#2
+    ($deposit, $hash0) = $alloc->('a');
+    is($deposit->put($hash0), 0, 'deposit#2 put on exist 1');
+    $check->($deposit);
 
+    # deposit#3
+    ($deposit, $hash0) = $alloc->('a');
+    ok($deposit->get($hash0), 'deposit#3 get on exist 1');
+    $check->($deposit, 'a' => 2);
 
-    ok($deposit->hash(\@hashes), 'get hash on list ref when empty');
-    is(scalar(@hashes), 0, 'no hash returned when empty');
+    # deposit#4
+    ($deposit, $hash0) = $alloc->('a');
+    is($deposit->send('a'), $hash0, 'deposit#4 send on exist 1');
+    $check->($deposit, 'a' => 2);
 
+    # deposit#5
+    ($deposit, $hash0) = $alloc->('a');
+    ok($deposit->hash(\@hashes), 'deposit#5 hash');
+    is(scalar(@hashes), 1, 'deposit#5 hashlist size');
+    is($hashes[0], $hash0, 'deposit#5 hashlist content');
+    ok($deposit->get($hash0), 'deposit#5 get on exist 1');
+    ok($deposit->get($hash0), 'deposit#5 get on exist 2');
+    ok($deposit->put($hash0), 'deposit#5 put on exist 3');
+    $check->($deposit, 'a' => 2);
 
-    $hash0 = $deposit->send("some\nlines");
-    like($hash0, qr/^[0-9a-f]{32}$/, 'send from scalar');
+    # deposit#6
+    ($deposit, $hash0) = $alloc->('a');
+    ok($deposit->hash(\@hashes), 'deposit#6 hash');
+    is(scalar(@hashes), 1, 'deposit#6 hashlist size');
+    is($hashes[0], $hash0, 'deposit#6 hashlist content');
+    is($deposit->put($hash0), 0, 'deposit#6 put on exist 1');
+    $check->($deposit);
 
-    open($fh, '<', $file0);
-    $hash1 = $deposit->send($fh);
-    close($fh);
-    like($hash1, qr/^[0-9a-f]{32}$/, 'send from filehandle');
+    # deposit#7
+    ($deposit, $hash0) = $alloc->('a');
+    ok($deposit->hash(\@hashes), 'deposit#7 hash');
+    is(scalar(@hashes), 1, 'deposit#7 hashlist size');
+    is($hashes[0], $hash0, 'deposit#7 hashlist content');
+    ok($deposit->get($hash0), 'deposit#7 get on exist 1');
+    ok($deposit->put($hash0), 'deposit#7 put on exist 2');
+    is($deposit->put($hash0), 0, 'deposit#7 put on exist 1');
+    $check->($deposit);
 
+    # deposit#8
+    ($deposit, $hash0) = $alloc->('a');
+    is($deposit->put($hash0), 0, 'deposit#8 put on exist 1');
+    is($deposit->send('a'), $hash0, 'deposit#8 send on unexist');
+    $check->($deposit, 'a' => 1);
 
-    ok($deposit->hash(\@hashes), 'get hash on list ref');
-    %cmphash = map { $_, 1 } @hashes;
-    is_deeply(\%cmphash, { $hash0 => 1,
-			   $hash1 => 1 }, 'hash on list ref are corrects');
+    # deposit#9
+    ($deposit, $hash0) = $alloc->('a');
+    ok($deposit->hash(\@hashes), 'deposit#9 hash');
+    is(scalar(@hashes), 1, 'deposit#9 hashlist size');
+    is($hashes[0], $hash0, 'deposit#9 hashlist content');
+    is($deposit->put($hash0), 0, 'deposit#9 put on exist 1');
+    is($deposit->send('a'), $hash0, 'deposit#9 send on unexist');
+    $check->($deposit, 'a' => 1);
 
-
-    ok($deposit->recv($hash0, \$content), 'recv on scalar ref');
-    is($content, "some\nlines", 'recv on scalar ref is correct');
-
-    open($fh, '>', $file1);
-    ok($deposit->recv($hash1, $fh), 'recv on filehandle');
-    close($fh);
-    is(`diff $file0 $file1`, '', 'recv on filehandle ref is correct');
-
-    is($deposit->recv('0' x 32, \$content), undef, 'recv unexisting');
-
-
-    is($deposit->get($hash0), 2, 'get increment ref count (same object)');
-    is($eviltwin->get($hash0), 3,'get increment ref count (different object)');
-    is($deposit->get('0' x 32), undef, 'get on unexisting');
-
-    is($deposit->put($hash0), 2, 'put decrement ref count (same object)');
-    is($eviltwin->put($hash0), 1,'put decrement ref count (different object)');
-
-    $deposit->put($hash0);
-    $deposit->hash(\@hashes);
-    is(scalar(@hashes), 1, 'put erase the object when no ref');
-
-    is($deposit->put($hash0), undef, 'put on unexisting');
+    # deposit#10
+    ($deposit, $hash0) = $alloc->('a');
+    ok($deposit->hash(\@hashes), 'deposit#10 hash');
+    is(scalar(@hashes), 1, 'deposit#10 hashlist size');
+    is($hashes[0], $hash0, 'deposit#10 hashlist content');
+    $check->($deposit, 'a' => 1);
 }
 
 

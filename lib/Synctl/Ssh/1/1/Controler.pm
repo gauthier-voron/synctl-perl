@@ -1,4 +1,4 @@
-package Synctl::SshControler;
+package Synctl::Ssh::1::1::Controler;
 
 use parent qw(Synctl::Controler);
 use strict;
@@ -8,8 +8,9 @@ use Carp;
 use Scalar::Util qw(blessed);
 
 use Synctl qw(:error);
-use Synctl::SshDeposit;
-use Synctl::SshSnapshot;
+use Synctl::Ssh::1::1::Connection;
+use Synctl::Ssh::1::1::Deposit;
+use Synctl::Ssh::1::1::Snapshot;
 
 
 sub __connection
@@ -26,29 +27,20 @@ sub __connection
 
 sub _init
 {
-    my ($self, $connection, @err) = @_;
-    my ($ack, $cversion, $sversion);
+    my ($self, $in, $out, @err) = @_;
+    my ($connection);
 
-    if (!defined($connection)) {
+    if (!defined($in) || !defined($out)) {
 	return throw(ESYNTAX, undef);
-    } if (@err) {
+    } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
-    } elsif (!blessed($connection)||!$connection->isa('Synctl::SshProtocol')) {
-	return throw(EINVLD, $connection);
     } elsif (!defined($self->SUPER::_init())) {
 	return undef;
     }
 
-    $cversion = $Synctl::VERSION;
-    if (!$connection->send('syn', $cversion)) {
-	return throw(EPROT, 'syn');
-    } 
-
-    ($ack, $sversion) = $connection->recv();
-    if (!defined($ack) || $ack ne 'ack') {
-	return throw(EPROT, $ack || '<undef>');
-    } elsif (!defined($sversion) || $sversion ne $cversion) {
-	return throw(EPROT, $cversion, $sversion);
+    $connection = Synctl::Ssh::1::1::Connection->new($in, $out);
+    if (!defined($connection)) {
+	return undef;
     }
 
     $self->__connection($connection);
@@ -67,38 +59,40 @@ sub deposit
     }
 
     $connection = $self->__connection();
-    return Synctl::SshDeposit->new($connection);
+    return Synctl::Ssh::1::1::Deposit->new($connection);
 }
 
 sub snapshot
 {
     my ($self, @err) = @_;
-    my ($connection, @ret);
+    my ($connection, @ids);
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
     }
 
     $connection = $self->__connection();
-    $connection->send('snapshot');
-    @ret = $connection->recv();
+    @ids = $connection->call('snapshot');
 
-    return map { Synctl::SshSnapshot->new($connection, $_); } @ret;
+    return map { Synctl::Ssh::1::1::Snapshot->new($connection, $_); } @ids;
 }
 
 sub create
 {
     my ($self, @err) = @_;
-    my ($connection, $ret);
+    my ($connection, $id, $snapshot);
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
     }
 
     $connection = $self->__connection();
-    $connection->send('create');
+    $id = $connection->call('create');
 
-    return Synctl::SshSnapshot->new($connection, $connection->recv());
+    $snapshot = Synctl::Ssh::1::1::Snapshot->new($connection, $id);
+    $snapshot->load();
+
+    return $snapshot;
 }
 
 sub delete
@@ -115,9 +109,7 @@ sub delete
     }
 
     $connection = $self->__connection();
-    $ret = $connection->send('delete', $snapshot->id());
-
-    return $ret;
+    return $connection->call('delete', $snapshot->id());
 }
 
 

@@ -1,4 +1,4 @@
-package Synctl::FileSnapshot;
+package Synctl::File::1::Snapshot;
 
 use parent qw(Synctl::Snapshot);
 use strict;
@@ -61,11 +61,19 @@ sub _init
 {
     my ($self) = @_;
     my $date = __now();
+    my $fh;
 
     if (defined($self->_date()))          { return undef; }
     if (!mkdir($self->__path()))          { return undef; }
     if (!mkdir($self->__path_property())) { return undef; }
     if (!defined($self->_date($date)))    { return undef; }
+    
+    if (open($fh, '>', $self->__path() . '/version')) {
+	printf($fh "1\n");
+	close($fh);
+    } else {
+	return undef;
+    }
 
     return 1;
 }
@@ -255,6 +263,15 @@ sub _get_properties
   err:
     close($fh);
     return undef;
+}
+
+sub _flush
+{
+    my ($self) = @_;
+
+    # nothing to do
+
+    return 1;
 }
 
 
