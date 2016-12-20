@@ -64,6 +64,7 @@ sub _init
     }
 
     if (open($fh, '>', $self->__path() . '/version')) {
+	notify(INFO, IFCREAT, $self->__path() . '/version');
 	printf($fh "1\n");
 	close($fh);
     } else {

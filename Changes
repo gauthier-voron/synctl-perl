@@ -1,5 +1,12 @@
 Revision history for Perl extension Synctl.
 
+1.0.2  2016-12-06
+       - Upgrade of snapshot and deposit format :
+         - format extensibility
+       - Ssh protocol improvement :
+         - performance improvement
+	 - protocol extensibility
+
 1.0.1  2016-11-10
        - Rename convert script to synconvert
        - Add synconvert to the installation
