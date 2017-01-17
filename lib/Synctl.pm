@@ -14,6 +14,8 @@ use constant {
     ESYS    => 'System error',
     EPROT   => 'Protocol error',
     ECONFIG => 'Configuration error',
+    ECSERV  => 'Invalid server',
+    ECID    => 'Invalid identifier',
 
     ERROR   => 1,
     WARN    => 2,
@@ -48,7 +50,8 @@ require Exporter;
 our @ISA = qw(Exporter);
 
 our %EXPORT_TAGS = (
-    'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG) ],
+    'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG ECSERV
+                      ECID) ],
     'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
                       IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
                       IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET IWSEND
@@ -261,7 +264,7 @@ sub init
     }
 
     if ($type ne 'file') {
-	return throw(EINVLD, $location);
+	return throw(ECSERV, $location);
     }
 
     if (@err) {
@@ -274,7 +277,7 @@ sub init
 	}
 
 	if (!__check_empty_dir($path)) {
-	    return throw(EINVLD, $location);
+	    return throw(ECSERV, $location);
 	}
     } else {
 	if (!mkdir($path)) {
@@ -334,7 +337,7 @@ sub __file_controler
     }
     
     if (!(-d $deposit_path) || !(-d $snapshot_path)) {
-	return throw(EINVLD, $path);
+	return throw(ECSERV, $path);
     }
 
     if (!defined($deposit = Synctl::File->deposit($deposit_path))) {
@@ -380,7 +383,7 @@ sub __ssh_controler
     }
 
     if (!($location =~ m|^([^:]+):(.*)$|)) {
-	return throw(EINVLD, $location);
+	return throw(ECSERV, $location);
     } else {
 	($address, $path) = ($1, $2);
     }
@@ -448,7 +451,7 @@ sub controler
     $action = $actions{$type};
 
     if (!defined($action)) {
-	return throw(EINVLD, $location);
+	return throw(ECSERV, $location);
     }
 
     return $action->($path, @args);
@@ -532,7 +535,7 @@ sub list
 	}
 
 	if (!($cfilter =~ /^\d{4}(-\d\d){5}$/)) {
-	    return throw(EINVLD, $filter);
+	    return throw(ECID, $filter);
 	}
 
 	$filter = $cfilter;
