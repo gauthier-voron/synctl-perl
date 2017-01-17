@@ -16,6 +16,7 @@ use constant {
     ECONFIG => 'Configuration error',
     ECSERV  => 'Invalid server',
     ECID    => 'Invalid identifier',
+    ESREACH => 'Server unreachable',
 
     ERROR   => 1,
     WARN    => 2,
@@ -426,7 +427,7 @@ sub __ssh_controler
     waitpid($pid, 0);
     
     $SIG{PIPE} = $prevsig;
-    return undef;
+    return throw(ESREACH, $location);
 }
 
 sub controler
