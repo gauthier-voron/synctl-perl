@@ -430,6 +430,14 @@ sub __hook
 }
 
 
+sub _report
+{
+    my ($self, $code, @hints) = @_;
+    my $connection = $self->__connection();
+
+    $connection->send('report', undef, $code, @hints);
+}
+
 sub _serve
 {
     my ($self) = @_;

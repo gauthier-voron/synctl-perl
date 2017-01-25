@@ -25,6 +25,19 @@ sub __connection
 }
 
 
+sub __init_hooks
+{
+    my ($self) = @_;
+    my $connection = $self->__connection();
+
+    $connection->recv('report', sub {
+	my ($stag, $rtag, $code, @hints) = @_;
+
+	throw($code, @hints);
+	return 1;
+    });
+}
+
 sub _init
 {
     my ($self, $in, $out, @err) = @_;
@@ -44,6 +57,7 @@ sub _init
     }
 
     $self->__connection($connection);
+    $self->__init_hooks();
 
     return $self;
 }

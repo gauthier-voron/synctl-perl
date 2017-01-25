@@ -476,6 +476,11 @@ sub serve
 	return undef;
     }
 
+    Configure(ERROR => sub {
+	$server->report(@_);
+	exit (1);
+    });
+
     return $server->serve();
 }
 

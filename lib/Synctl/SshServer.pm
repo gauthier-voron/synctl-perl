@@ -30,6 +30,19 @@ sub new
 
 
 sub _serve   { confess('abstract method'); }
+sub _report  { confess('abstract method'); }
+
+
+sub report
+{
+    my ($self, $code, @hints) = @_;
+
+    if (!defined($code)) {
+	return throw(ESYNTAX, undef);
+    }
+
+    return $self->_report($code, @hints);
+}
 
 sub serve
 {
