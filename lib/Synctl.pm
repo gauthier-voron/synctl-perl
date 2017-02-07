@@ -14,6 +14,9 @@ use constant {
     ESYS    => 'System error',
     EPROT   => 'Protocol error',
     ECONFIG => 'Configuration error',
+    ECSERV  => 'Invalid server',
+    ECID    => 'Invalid identifier',
+    ESREACH => 'Server unreachable',
 
     ERROR   => 1,
     WARN    => 2,
@@ -40,6 +43,8 @@ use constant {
     INODMAP => 'Nodemap update',      # client/server, key, value
     IUMODE  => 'Unexpected mode',     # file, mode
     IUCONT  => 'Unexpected content',  # file, content
+    IPROT   => 'Protocol message',    # transmit/receive/compute, message
+    IEXEC   => 'Execute command',     # executed command
 };
 
 
@@ -48,11 +53,12 @@ require Exporter;
 our @ISA = qw(Exporter);
 
 our %EXPORT_TAGS = (
-    'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG) ],
+    'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG ECSERV
+                      ECID) ],
     'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
                       IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
                       IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET IWSEND
-                      IWRECV synthetic) ],
+                      IWRECV IPROT IEXEC synthetic) ],
     'all'     => [ qw(Configure backend init controler send list recv serve) ]
     );
 
@@ -179,7 +185,8 @@ sub __notice
 	);
 
     @hints = map { if (defined($_)) { $_ } else { '<undef>' } } @hints;
-    printf(STDERR "[%s] %s: %s\n", $names{$level}, $code, join(' ', @hints));
+    printf(STDERR "%-7s %s: %s\n", '[' . $names{$level} . ']',
+	   $code, join(' ', @hints));
 }
 
 sub __configure_verbose
@@ -261,7 +268,7 @@ sub init
     }
 
     if ($type ne 'file') {
-	return throw(EINVLD, $location);
+	return throw(ECSERV, $location);
     }
 
     if (@err) {
@@ -274,7 +281,7 @@ sub init
 	}
 
 	if (!__check_empty_dir($path)) {
-	    return throw(EINVLD, $location);
+	    return throw(ECSERV, $location);
 	}
     } else {
 	if (!mkdir($path)) {
@@ -334,7 +341,7 @@ sub __file_controler
     }
     
     if (!(-d $deposit_path) || !(-d $snapshot_path)) {
-	return throw(EINVLD, $path);
+	return throw(ECSERV, $path);
     }
 
     if (!defined($deposit = Synctl::File->deposit($deposit_path))) {
@@ -380,10 +387,13 @@ sub __ssh_controler
     }
 
     if (!($location =~ m|^([^:]+):(.*)$|)) {
-	return throw(EINVLD, $location);
+	return throw(ECSERV, $location);
     } else {
 	($address, $path) = ($1, $2);
     }
+
+    notify(DEBUG, IEXEC,
+	   join(' ', map { "'$_'" } (@lcommand, $address, @rcommand, $path)));
 
     if (!pipe($child_in, $parent_out)) { return throw(ESYS, $!); }
     if (!pipe($parent_in, $child_out)) { return throw(ESYS, $!); }
@@ -423,7 +433,7 @@ sub __ssh_controler
     waitpid($pid, 0);
     
     $SIG{PIPE} = $prevsig;
-    return undef;
+    return throw(ESREACH, $location);
 }
 
 sub controler
@@ -448,7 +458,7 @@ sub controler
     $action = $actions{$type};
 
     if (!defined($action)) {
-	return throw(EINVLD, $location);
+	return throw(ECSERV, $location);
     }
 
     return $action->($path, @args);
@@ -471,6 +481,11 @@ sub serve
     if (!defined($server)) {
 	return undef;
     }
+
+    Configure(ERROR => sub {
+	$server->report(@_);
+	exit (1);
+    });
 
     return $server->serve();
 }
@@ -532,7 +547,7 @@ sub list
 	}
 
 	if (!($cfilter =~ /^\d{4}(-\d\d){5}$/)) {
-	    return throw(EINVLD, $filter);
+	    return throw(ECID, $filter);
 	}
 
 	$filter = $cfilter;
