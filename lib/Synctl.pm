@@ -43,6 +43,8 @@ use constant {
     INODMAP => 'Nodemap update',      # client/server, key, value
     IUMODE  => 'Unexpected mode',     # file, mode
     IUCONT  => 'Unexpected content',  # file, content
+    IPROT   => 'Protocol message',    # transmit/receive/compute, message
+    IEXEC   => 'Execute command',     # executed command
 };
 
 
@@ -56,7 +58,7 @@ our %EXPORT_TAGS = (
     'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
                       IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
                       IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET IWSEND
-                      IWRECV synthetic) ],
+                      IWRECV IPROT IEXEC synthetic) ],
     'all'     => [ qw(Configure backend init controler send list recv serve) ]
     );
 
@@ -183,7 +185,8 @@ sub __notice
 	);
 
     @hints = map { if (defined($_)) { $_ } else { '<undef>' } } @hints;
-    printf(STDERR "[%s] %s: %s\n", $names{$level}, $code, join(' ', @hints));
+    printf(STDERR "%-7s %s: %s\n", '[' . $names{$level} . ']',
+	   $code, join(' ', @hints));
 }
 
 sub __configure_verbose
@@ -388,6 +391,9 @@ sub __ssh_controler
     } else {
 	($address, $path) = ($1, $2);
     }
+
+    notify(DEBUG, IEXEC,
+	   join(' ', map { "'$_'" } (@lcommand, $address, @rcommand, $path)));
 
     if (!pipe($child_in, $parent_out)) { return throw(ESYS, $!); }
     if (!pipe($parent_in, $child_out)) { return throw(ESYS, $!); }

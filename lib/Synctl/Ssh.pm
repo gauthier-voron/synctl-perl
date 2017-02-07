@@ -3,7 +3,7 @@ package Synctl::Ssh;
 use strict;
 use warnings;
 
-use Synctl qw(:error);
+use Synctl qw(:error :verbose);
 
 
 require Exporter;
@@ -232,22 +232,29 @@ sub controler
     }
 
     $ret = __send_version($out, $client_version);
+    notify(INFO, IPROT, 'transmit', 'client ssh version : ' . $client_version);
     if (!$ret) {
+	notify(INFO, IPROT, 'transmit', 'client ssh version : FAILURE');
 	return undef;
     }
 
     $server_version = __recv_version($in);
     if (!$server_version) {
+	notify(INFO, IPROT, 'receive', 'server ssh version : ABORT');
 	return undef;
     }
+    notify(INFO, IPROT, 'receive', 'server ssh version : ' . $server_version);
 
     $client_version = __find_client_version($server_version);
+    notify(INFO, IPROT, 'compute', 'used ssh version : ' . $client_version);
     if (!defined($client_version)) {
 	return undef;
     }
 
     $ret = __send_version($out, $client_version);
+    notify(INFO, IPROT, 'transmit', 'used ssh version : ' . $client_version);
     if (!$ret) {
+	notify(INFO, IPROT, 'transmit', 'used ssh version : FAILURE');
 	return undef;
     }
 
