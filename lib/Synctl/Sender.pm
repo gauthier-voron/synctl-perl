@@ -1,9 +1,9 @@
 package Synctl::Sender;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
-use Carp;
 use Digest::MD5 qw(md5_hex);
 use Fcntl qw(SEEK_SET);
 use Scalar::Util qw(blessed);
@@ -11,38 +11,13 @@ use Scalar::Util qw(blessed);
 use Synctl qw(:error :verbose);
 
 
-sub __deposit
-{
-    my ($self, $value) = @_;
+sub __deposit  { return shift()->_rw('__deposit',  @_); }
+sub __snapshot { return shift()->_rw('__snapshot', @_); }
+sub __seeker   { return shift()->_rw('__seeker',   @_); }
 
-    if (defined($value)) {
-	$self->{'__deposit'} = $value;
-    }
-
-    return $self->{'__deposit'};
-}
-
-sub __snapshot
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__snapshot'} = $value;
-    }
-
-    return $self->{'__snapshot'};
-}
-
-sub __seeker
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__seeker'} = $value;
-    }
-
-    return $self->{'__seeker'};
-}
+sub deposit  { return shift()->_ro('__deposit',  @_); }
+sub snapshot { return shift()->_ro('__snapshot', @_); }
+sub seeker   { return shift()->_ro('__seeker',   @_); }
 
 
 sub _new
@@ -59,6 +34,8 @@ sub _new
 	return throw(EINVLD, $seeker);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
     $self->__deposit($deposit);
@@ -66,51 +43,6 @@ sub _new
     $self->__seeker($seeker);
 
     return $self;
-}
-
-sub new
-{
-    my ($class, @args) = @_;
-    my $self;
-
-    $self = bless({}, $class);
-    $self = $self->_new(@args);
-
-    return $self;
-}
-
-
-sub deposit
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__deposit();
-}
-
-sub snapshot
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__snapshot();
-}
-
-sub seeker
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__seeker();
 }
 
 

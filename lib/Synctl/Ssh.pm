@@ -246,10 +246,10 @@ sub controler
     notify(INFO, IPROT, 'receive', 'server ssh version : ' . $server_version);
 
     $client_version = __find_client_version($server_version);
-    notify(INFO, IPROT, 'compute', 'used ssh version : ' . $client_version);
     if (!defined($client_version)) {
 	return undef;
     }
+    notify(INFO, IPROT, 'compute', 'used ssh version : ' . $client_version);
 
     $ret = __send_version($out, $client_version);
     notify(INFO, IPROT, 'transmit', 'used ssh version : ' . $client_version);

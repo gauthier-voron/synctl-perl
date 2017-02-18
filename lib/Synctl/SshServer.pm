@@ -1,11 +1,11 @@
 package Synctl::SshServer;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
 use Carp;
 use Scalar::Util qw(blessed);
-
 use Synctl qw(:error);
 
 
@@ -15,17 +15,11 @@ sub _new
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
     return $self;
-}
-
-sub new
-{
-    my ($class, @args) = @_;
-    my $self = bless({}, $class);
-
-    return $self->_new(@args);
 }
 
 

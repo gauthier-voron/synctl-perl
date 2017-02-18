@@ -10,97 +10,17 @@ use constant {
 
 use Carp;
 use Scalar::Util qw(blessed);
-
 use Synctl qw(:error);
 
 
-sub __connection
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__connection'} = $value;
-    }
-    
-    return $self->{'__connection'};
-}
-
-sub __id
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__id'} = $value;
-    }
-    
-    return $self->{'__id'};
-}
-
-sub __writeback
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__writeback'} = $value;
-    }
-
-    return $self->{'__writeback'};
-}
-
-sub __dcontent
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__dcontent'} = $value;
-    }
-
-    return $self->{'__dcontent'};
-}
-
-sub __fcontent
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__fcontent'} = $value;
-    }
-
-    return $self->{'__fcontent'};
-}
-
-sub __property
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__property'} = $value;
-    }
-
-    return $self->{'__property'};
-}
-
-sub __buffer
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__buffer'} = $value;
-    }
-
-    return $self->{'__buffer'};
-}
-
-sub __bufsize
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__bufsize'} = $value;
-    }
-
-    return $self->{'__bufsize'};
-}
+sub __connection { return shift()->_rw('__connection', @_); }
+sub __id         { return shift()->_rw('__id',         @_); }
+sub __writeback  { return shift()->_rw('__writeback',  @_); }
+sub __dcontent   { return shift()->_rw('__dcontent',   @_); }
+sub __fcontent   { return shift()->_rw('__fcontent',   @_); }
+sub __property   { return shift()->_rw('__property',   @_); }
+sub __buffer     { return shift()->_rw('__buffer',     @_); }
+sub __bufsize    { return shift()->_rw('__bufsize',    @_); }
 
 
 sub _new

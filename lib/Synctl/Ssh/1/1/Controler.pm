@@ -13,16 +13,7 @@ use Synctl::Ssh::1::1::Deposit;
 use Synctl::Ssh::1::1::Snapshot;
 
 
-sub __connection
-{
-    my ($self, $connection) = @_;
-
-    if (defined($connection)) {
-	$self->{'__connection'} = $connection;
-    }
-
-    return $self->{'__connection'};
-}
+sub __connection { return shift()->_rw('__connection', @_); }
 
 
 sub __init_hooks
@@ -38,7 +29,7 @@ sub __init_hooks
     });
 }
 
-sub _init
+sub _new
 {
     my ($self, $in, $out, @err) = @_;
     my ($connection);
@@ -47,7 +38,7 @@ sub _init
 	return throw(ESYNTAX, undef);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
-    } elsif (!defined($self->SUPER::_init())) {
+    } elsif (!defined($self->SUPER::_new())) {
 	return undef;
     }
 

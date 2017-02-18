@@ -1,66 +1,36 @@
 package Synctl::Seeker;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
-use Carp;
 use Synctl qw(:error :verbose);
 
 
-sub __path
+sub __path   { return shift()->_rw('__path',  @_); }
+sub __filter { return shift()->_rw('__filter', @_); }
+
+sub path { return shift()->_ro('__path', @_); }
+
+
+sub _new
 {
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__path'} = $value;
-    }
-
-    return $self->{'__path'};
-}
-
-sub __filter
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__filter'} = $value;
-    }
-
-    return $self->{'__filter'};
-}
-
-
-sub new
-{
-    my ($class, $path, @err) = @_;
-    my $self;
+    my ($self, $path, @err) = @_;
 
     if (!defined($path)) {
 	return throw(ESYNTAX, undef);
-    } elsif (ref($path) ne '') {
-	return throw(EINVLD, $path);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
-    $self = bless({}, $class);
     $self->__path($path);
     $self->__filter(sub { return 1 });
 
     return $self;
 }
 
-
-sub path
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__path();
-}
 
 sub filter
 {

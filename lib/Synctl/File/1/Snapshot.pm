@@ -4,41 +4,29 @@ use parent qw(Synctl::Snapshot);
 use strict;
 use warnings;
 
-use Carp;
 use Digest::MD5 qw(md5_hex);
+use Synctl qw(:error :verbose);
 
 
-sub __path
-{
-    my ($self, $value) = @_;
+sub __path { return shift()->_rw('__path', @_); }
+sub __id   { return shift()->_rw('__id',   @_); }
 
-    if (defined($value)) {
-	$self->{'__path'} = $value;
-    }
-    
-    return $self->{'__path'};
-}
+sub _id   { return shift()->_ro('__id',   @_); }
 
-sub __id
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__id'} = $value;
-    }
-
-    return $self->{'__id'};
-}
+sub path { return shift()->_ro('__path', @_); }
 
 
 sub _new
 {
     my ($self, $path, $id, @err) = @_;
 
-    if (@err) { confess('unexpected argument'); }
-    if (!defined($path) || ref($path) ne '') { confess('invalid argument'); }
-    if (!defined($id) || ref($id) ne '') { confess('invalid argument'); }
-    if (!defined($self->SUPER::_new())) { return undef; }
+    if (!defined($path) || !defined($id)) {
+	return throw(ESYNTAX, undef);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
+    }
 
     $self->__path($path);
     $self->__id($id);
@@ -97,20 +85,6 @@ sub __path_date
     return $self->__path() . '/date';
 }
 
-sub path
-{
-    my ($self, @err) = @_;
-
-    if (@err) { confess('unexpected argument'); }
-    return $self->__path();
-}
-
-
-sub _id
-{
-    my ($self) = @_;
-    return $self->__id();
-}
 
 sub _date
 {
