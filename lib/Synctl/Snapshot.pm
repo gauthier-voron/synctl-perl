@@ -1,5 +1,6 @@
 package Synctl::Snapshot;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
@@ -15,19 +16,10 @@ sub _new
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
-    return $self;
-}
-
-sub new
-{
-    my ($class, @args) = @_;
-    my $self;
-
-    $self = bless({}, $class);
-    $self = $self->_new(@args);
-    
     return $self;
 }
 
