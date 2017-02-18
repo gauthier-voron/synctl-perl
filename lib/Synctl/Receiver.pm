@@ -1,82 +1,47 @@
 package Synctl::Receiver;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
-use Carp;
 use Digest::MD5 qw(md5_hex);
 use Fcntl qw(:mode);
 use POSIX qw(lchown);
+use Scalar::Util qw(blessed);
 use Synctl qw(:error :verbose);
 
 
-sub __server_path
+sub __server_path { return shift()->_rw('__server_path', @_); }
+sub __client_path { return shift()->_rw('__client_path', @_); }
+sub __snapshot    { return shift()->_rw('__snapshot',    @_); }
+sub __deposit     { return shift()->_rw('__deposit',     @_); }
+sub __filter      { return shift()->_rw('__filter',      @_); }
+
+sub server_path   { return shift()->_ro('__server_path', @_); }
+sub client_path   { return shift()->_ro('__client_path', @_); }
+sub snapshot      { return shift()->_ro('__snapshot',    @_); }
+sub deposit       { return shift()->_ro('__deposit',     @_); }
+sub force         { return shift()->_rw('__force',       @_); }
+
+
+sub _new
 {
-    my ($self, $value) = @_;
+    my ($self, $server_path, $client_path, $snapshot, $deposit, @err) = @_;
 
-    if (defined($value)) {
-	$self->{'__server_path'} = $value;
-    }
-
-    return $self->{'__server_path'};
-}
-
-sub __client_path
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__client_path'} = $value;
-    }
-
-    return $self->{'__client_path'};
-}
-
-sub __snapshot
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__snapshot'} = $value;
-    }
-
-    return $self->{'__snapshot'};
-}
-
-sub __deposit
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__deposit'} = $value;
-    }
-
-    return $self->{'__deposit'};
-}
-
-sub __filter
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__filter'} = $value;
-    }
-
-    return $self->{'__filter'};
-}
-
-
-sub new
-{
-    my ($class, $server_path, $client_path, $snapshot, $deposit, @err) = @_;
-    my $self;
-
-    if (@err) {
+    if (!defined($server_path) || !defined($client_path)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!defined($snapshot) || !defined($deposit)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::Snapshot')) {
+	return throw(EINVLD, $snapshot);
+    } elsif (!blessed($deposit) || !$deposit->isa('Synctl::Deposit')) {
+	return throw(EINVLD, $deposit);
+    } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
-    $self = bless({}, $class);
-    
     $self->__server_path($server_path);
     $self->__client_path($client_path);
     $self->__snapshot($snapshot);
@@ -88,21 +53,6 @@ sub new
     return $self;
 }
 
-
-sub force
-{
-    my ($self, $value, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    if (defined($value)) {
-	$self->{'force'} = $value;
-    }
-
-    return $self->{'force'};
-}
 
 sub filter
 {
@@ -121,51 +71,6 @@ sub filter
     }
 
     return $self->__filter();
-}
-
-
-sub server_path
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__server_path();
-}
-
-sub client_path
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__client_path();
-}
-
-sub snapshot
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__snapshot();
-}
-
-sub deposit
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__deposit();
 }
 
 

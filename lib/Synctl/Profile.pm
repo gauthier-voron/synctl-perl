@@ -1,5 +1,6 @@
 package Synctl::Profile;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
@@ -7,32 +8,19 @@ use IO::Handle;
 use Synctl qw(:error :verbose);
 
 
-sub __rw
+sub __client  { return shift()->_rw('__client',  @_); }
+sub __server  { return shift()->_rw('__server',  @_); }
+sub __filters { return shift()->_rw('__filters', @_); }
+
+
+sub _new
 {
-    my ($self, $name, $value) = @_;
-
-    if (defined($value)) {
-	$self->{$name} = $value;
-    }
-
-    return $self->{$name};
-}
-
-sub __client  { return shift()->__rw('__client',  @_); }
-sub __server  { return shift()->__rw('__server',  @_); }
-sub __filters { return shift()->__rw('__filters', @_); }
-
-
-sub new
-{
-    my ($class, @err) = @_;
-    my $self;
+    my ($self, @err) = @_;
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
     }
 
-    $self = bless({}, $class);
     $self->__filters([]);
 
     return $self;
@@ -138,56 +126,6 @@ sub __regexify
 
     return qr:$elem:;
 }
-
-# sub __unmatch
-# {
-#     my ($path, $includes, $excludes) = @_;
-#     my ($regex, @imatched, @ematched, $subpath);
-
-#     foreach $regex (@$includes) {
-# 	if (!($path =~ $regex)) {
-# 	    return 1;
-# 	}
-#     }
-
-#     foreach $regex (@$excludes) {
-# 	if (!($path =~ $regex)) {
-# 	    return 0;
-# 	}
-#     }
-
-#     $subpath = substr($path, 0, length($path) - 1);
-#     return __unmatch($subpath, $includes, $excludes);
-# }
-
-# sub __match
-# {
-#     my ($path, $includes, $excludes) = @_;
-#     my ($regex, @imatched, @ematched, $subpath);
-
-#     foreach $regex (@$excludes) {
-# 	if ($path =~ $regex) {
-# 	    push(@ematched, $regex);
-# 	}
-#     }
-
-#     if (!@ematched) {
-# 	return 1;
-#     }
-
-#     foreach $regex (@$includes) {
-# 	if ($path =~ $regex) {
-# 	    push(@imatched, $regex);
-# 	}
-#     }
-
-#     if (!@imatched) {
-# 	return 0;
-#     }
-
-#     $subpath = substr($path, 0, length($path) - 1);
-#     return __unmatch($subpath, \@imatched, \@ematched);
-# }
 
 sub filter
 {
