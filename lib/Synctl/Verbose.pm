@@ -1,56 +1,45 @@
 package Synctl::Verbose;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
-use Carp;
 use Encode;
 use POSIX qw(locale_h);
 
 use Synctl qw(:error :verbose);
 
 
-sub __rw
+sub __state          { return shift->_rw('__state',          @_); }
+sub __progress_going { return shift->_rw('__progress_going', @_); }
+sub __progress_text  { return shift->_rw('__progress_text',  @_); }
+sub __progress_done  { return shift->_rw('__progress_done',  @_); }
+sub __progress_total { return shift->_rw('__progress_total', @_); }
+sub __term           { return shift->_rw('__term',           @_); }
+sub __ltext          { return shift->_rw('__ltext',          @_); }
+sub __lbar           { return shift->_rw('__lbar',           @_); }
+sub __lastsetup      { return shift->_rw('__lastsetup',      @_); }
+sub __first          { return shift->_rw('__first',          @_); }
+sub __last           { return shift->_rw('__last',           @_); }
+sub __fsent          { return shift->_rw('__fsent',          @_); }
+sub __wsent          { return shift->_rw('__wsent',          @_); }
+sub __csent          { return shift->_rw('__csent',          @_); }
+sub __frecv          { return shift->_rw('__frecv',          @_); }
+sub __wrecv          { return shift->_rw('__wrecv',          @_); }
+sub __crecv          { return shift->_rw('__crecv',          @_); }
+sub __encoding       { return shift->_rw('__encoding',       @_); }
+
+
+sub _new
 {
-    my ($self, $name, $value) = @_;
-
-    if (defined($value)) {
-	$self->{$name} = $value;
-    }
-
-    return $self->{$name};
-}
-
-sub __state    { return shift->__rw('__state',    @_); }
-sub __progress_going { return shift->__rw('__progress_going', @_); }
-sub __progress_text { return shift->__rw('__progress_text', @_); }
-sub __progress_done { return shift->__rw('__progress_done', @_); }
-sub __progress_total { return shift->__rw('__progress_total', @_); }
-sub __term     { return shift->__rw('__term',     @_); }
-sub __ltext    { return shift->__rw('__ltext',    @_); }
-sub __lbar     { return shift->__rw('__lbar',     @_); }
-sub __lastsetup { return shift->__rw('__lastsetup', @_); }
-sub __first { return shift->__rw('__first', @_); }
-sub __last { return shift->__rw('__last', @_); }
-sub __fsent { return shift->__rw('__fsent', @_); }
-sub __wsent { return shift->__rw('__wsent', @_); }
-sub __csent { return shift->__rw('__csent', @_); }
-sub __frecv { return shift->__rw('__frecv', @_); }
-sub __wrecv { return shift->__rw('__wrecv', @_); }
-sub __crecv { return shift->__rw('__crecv', @_); }
-sub __encoding { return shift->__rw('__encoding', @_); }
-
-
-sub new
-{
-    my ($class, @err) = @_;
-    my $self;
+    my ($self, @err) = @_;
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
-    $self = bless({}, $class);
     $self->__state('');
     $self->__progress_going(0);
     $self->__lastsetup(0);
