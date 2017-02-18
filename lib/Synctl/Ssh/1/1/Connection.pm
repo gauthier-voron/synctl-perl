@@ -1,5 +1,6 @@
 package Synctl::Ssh::1::1::Connection;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
@@ -9,52 +10,16 @@ use Synctl qw(:error);
 use Synctl::Ssh::1::1::Codec qw(encode decode);
 
 
-sub __in
-{
-    my ($self, $value) = @_;
+sub __in     { return shift()->_rw('__in',     @_); }
+sub __out    { return shift()->_rw('__out',    @_); }
+sub __vector { return shift()->_rw('__vector', @_); }
+sub __newtag { return shift()->_rw('__newtag', @_); }
 
-    if (defined($value)) {
-	$self->{'__in'} = $value;
-    }
+sub _vector { return shift()->_ro('__vector', @_); }
+sub _newtag { return shift()->_ro('__newtag', @_); }
 
-    return $self->{'__in'};
-}
-
-sub __out
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__out'} = $value;
-    }
-
-    return $self->{'__out'};
-}
-
-sub __vector
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__vector'} = $value;
-    }
-
-    return $self->{'__vector'};
-}
-
-sub __newtag
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__newtag'} = $value;
-    } else {
-	$value = $self->{'__newtag'};
-	$self->{'__newtag'} = $value + 1;
-    }
-
-    return $value;
-}
+sub in  { return shift()->_ro('__in',     @_); }
+sub out { return shift()->_ro('__out',    @_); }
 
 
 sub _new
@@ -71,6 +36,8 @@ sub _new
 	return throw(EINVLD, $out);
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
     $self->__in($in);
@@ -81,49 +48,6 @@ sub _new
     return $self;
 }
 
-sub new
-{
-    my ($class, @args) = @_;
-    my $self = bless({}, $class);
-
-    return $self->_new(@args);
-}
-
-
-sub in
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-
-    return $self->__in();
-}
-
-sub out
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-
-    return $self->__out();
-}
-
-
-sub _vector
-{
-    my ($self) = @_;
-    return $self->__vector();
-}
-
-sub _newtag
-{
-    my ($self) = @_;
-    return $self->__newtag();
-}
 
 sub _fetch
 {
