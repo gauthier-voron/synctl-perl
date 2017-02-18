@@ -13,35 +13,21 @@ use Synctl qw(:error :verbose);
 use Synctl::File;
 
 
-sub __deposit
-{
-    my ($self, $deposit) = @_;
-
-    if (defined($deposit)) {
-	$self->{'__deposit'} = $deposit;
-    }
-
-    return $self->{'__deposit'};
-}
-
-sub __snaproot
-{
-    my ($self, $snaproot) = @_;
-
-    if (defined($snaproot)) {
-	$self->{'__snaproot'} = $snaproot;
-    }
-
-    return $self->{'__snaproot'};
-}
+sub __deposit  { return shift()->_rw('__deposit',  @_); }
+sub __snaproot { return shift()->_rw('__snaproot', @_); }
 
 
-sub _init
+sub _new
 {
     my ($self, $deposit, $snaproot, @err) = @_;
 
-    if (@err) { confess('unexpected argument'); }
-    if (!defined($self->SUPER::_init())) {
+    if (!defined($deposit) || !defined($snaproot)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!blessed($deposit) || !$deposit->isa('Synctl::Deposit')) {
+	return throw(EINVLD, $deposit);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
 	return undef;
     }
 
@@ -52,25 +38,22 @@ sub _init
 }
 
 
-sub deposit
+sub _deposit
 {
-    my ($self, @err) = @_;
+    my ($self) = @_;
 
-    if (@err) { confess('unexpected argument'); }
     return $self->__deposit();
 }
 
-sub snapshot
+sub _snapshot
 {
-    my ($self, @err) = @_;
+    my ($self) = @_;
     my ($root, @ret, $snapshot, $dh, $id);
-
-    if (@err) { confess('unexpected argument'); }
 
     $root = $self->__snaproot();
     
     if (!opendir($dh, $root)) {
-	return undef;
+	return throw(ESYS, $root, $!);
     }
 
     foreach $id (grep { /^[0-9a-f]{32}$/ } readdir($dh)) {
@@ -85,14 +68,10 @@ sub snapshot
     return @ret;
 }
 
-sub create
+sub _create
 {
-    my ($self, @err) = @_;
+    my ($self) = @_;
     my ($date, $id, $root, $snapshot);
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
 
     $id = md5_hex(rand(1 << 32));
 
@@ -186,17 +165,9 @@ sub __delete
     return 1;
 }
 
-sub delete
+sub _delete
 {
-    my ($self, $snapshot, @err) = @_;
-
-    if (!defined($snapshot)) {
-	return throw(ESYNTAX, undef);
-    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::Snapshot')) {
-	return throw(EINVLD, $snapshot);
-    } elsif (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
+    my ($self, $snapshot) = @_;
 
     notify(INFO, IRDELET);
     $self->__delete_ref($snapshot, '/');

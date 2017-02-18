@@ -1,5 +1,6 @@
 package Synctl::Controler;
 
+use parent qw(Synctl::Object);
 use strict;
 use warnings;
 
@@ -9,27 +10,24 @@ use Scalar::Util qw(blessed);
 use Synctl qw(:error);
 
 
-sub _init
+sub _new
 {
     my ($self, @err) = @_;
 
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
+	return undef;
     }
 
     return $self;
 }
 
-sub new
-{
-    my ($class, @args) = @_;
-    my $self;
 
-    $self = bless({}, $class);
-    $self = $self->_init(@args);
-    
-    return $self;
-}
+sub _deposit  { confess('abstract method'); }
+sub _snapshot { confess('abstract method'); }
+sub _create   { confess('abstract method'); }
+sub _delete   { confess('abstract method'); }
 
 
 sub deposit
@@ -40,7 +38,7 @@ sub deposit
 	return throw(ESYNTAX, shift(@err));
     }
 
-    confess('abstract method');
+    return $self->_deposit();
 }
 
 sub snapshot
@@ -51,7 +49,7 @@ sub snapshot
 	return throw(ESYNTAX, shift(@err));
     }
 
-    confess('abstract method');
+    return $self->_snapshot();
 }
 
 sub create
@@ -62,7 +60,7 @@ sub create
 	return throw(ESYNTAX, shift(@err));
     }
 
-    confess('abstract method');
+    return $self->_create();
 }
 
 sub delete
@@ -77,7 +75,7 @@ sub delete
 	return throw(ESYNTAX, shift(@err));
     }
 
-    confess('abstract method');
+    return $self->_delete($snapshot);
 }
 
 
