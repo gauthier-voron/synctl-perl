@@ -4,41 +4,27 @@ use parent qw(Synctl::Deposit);
 use strict;
 use warnings;
 
-use Carp;
 use Digest::MD5 qw(md5_hex);
+use Scalar::Util qw(blessed);
+use Synctl qw(:error :verbose);
 
-use Synctl qw(:verbose);
 
-
-sub __connection {
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__connection'} = $value;
-    }
-    
-    return $self->{'__connection'};
-}
-
-sub __cache
-{
-    my ($self, $value) = @_;
-
-    if (defined($value)) {
-	$self->{'__cache'} = $value;
-    }
-
-    return $self->{'__cache'};
-}
+sub __connection { return shift()->_rw('__connection', @_); }
+sub __cache      { return shift()->_rw('__cache',      @_); }
 
 
 sub _new
 {
     my ($self, $connection, @err) = @_;
 
-    if (@err) { confess('unexpected argument'); }
-    if (!defined($connection)) { confess('missing argument'); }
-    if (!defined($self->SUPER::_new())) {
+    if (!defined($connection)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!blessed($connection) ||
+	     !$connection->isa('Synctl::Ssh::1::1::Connection')) {
+	return throw(EINVLD, $connection);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    } elsif (!defined($self->SUPER::_new())) {
 	return undef;
     }
 

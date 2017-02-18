@@ -4,21 +4,13 @@ use parent qw(Synctl::Deposit);
 use strict;
 use warnings;
 
-use Carp;
 use Digest::MD5;
-
 use Synctl qw(:error :verbose);
 
 
-sub __path {
-    my ($self, $value) = @_;
+sub __path { return shift()->_rw('__path', @_); }
 
-    if (defined($value)) {
-	$self->{'__path'} = $value;
-    }
-    
-    return $self->{'__path'};
-}
+sub path { return shift()->_ro('__path', @_); }
 
 
 sub _new
@@ -87,18 +79,6 @@ sub __path_refcount
     my ($self) = @_;
     my $path = $self->__path();
     return $path . '/refcount';
-}
-
-
-sub path
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-    
-    return $self->__path();
 }
 
 
