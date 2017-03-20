@@ -5,6 +5,7 @@ use strict;
 use warnings;
 
 use Digest::MD5;
+use File::Temp qw(tempdir);
 use Synctl qw(:error :verbose);
 
 
@@ -89,7 +90,7 @@ sub _size
 
     $path = $self->__path_object();
     if (!opendir($dh, $path)) {
-	return throw(ESYS, $!);
+	return throw(ESYS, $path, $!);
     }
 
     $size = scalar(grep { /^[0-9a-f]{32}$/ } readdir($dh));
@@ -241,6 +242,217 @@ sub _flush
     # nothing to do
 
     return 1;
+}
+
+
+sub __checkup_hash
+{
+    my ($self, $hash, $eden) = @_;
+    my ($fh, $ctx, $digest, $path, $dpath);
+
+    $path = $self->__path_object() . '/' . $hash;
+
+    if (!open($fh, '<', $path)) {
+	notify(WARN, ESYS, $!, $path);
+	return;
+    }
+
+    $ctx = Digest::MD5->new();
+    $ctx->addfile($fh);
+    $digest = $ctx->hexdigest();
+
+    close($fh);
+
+    if ($digest eq $hash) {
+	return;
+    }
+
+    $dpath = $eden . '/' . $digest;
+
+    if (-e $dpath) {
+	unlink($path);
+    } else {
+	rename($path, $dpath);
+    }
+}
+
+sub __checkdown_hash
+{
+    my ($self, $hash, $eden) = @_;
+    my ($path, $dpath);
+
+    $path = $eden . '/' . $hash;
+    $dpath = $self->__path_object() . '/' . $hash;
+
+    if (-e $dpath) {
+	unlink($path);
+    } else {
+	rename($path, $dpath);
+    }
+}
+
+sub _checkup_hashes
+{
+    my ($self) = @_;
+    my ($hash, $dh);
+    my ($eden);
+
+    if (!($eden = tempdir('eden-XXXXXX', DIR => $self->path()))) {
+	return throw(ESYS, $!, $self->path() . '/eden-??????');
+    }
+
+    if (!opendir($dh, $self->__path_object())) {
+	rmdir($eden);
+	return throw(ESYS, $!, $self->__path_object());
+    } else {
+	foreach $hash (grep { ! /^\.\.?$/ } readdir($dh)) {
+	    $self->__checkup_hash($hash, $eden);
+	}
+	closedir($dh);
+    }
+
+    if (!opendir($dh, $eden)) {
+	return throw(ESYS, $!, $eden);
+    } else {
+	foreach $hash (grep { ! /^\.\.?$/ } readdir($dh)){
+	    $self->__checkdown_hash($hash, $eden);
+	}
+	closedir($dh);
+    }
+
+    rmdir($eden);
+
+    return 0;
+}
+
+sub _checkup_missings
+{
+    my ($self, $refcounts, $unfixed) = @_;
+    my ($hash, $path);
+
+    foreach $hash (keys(%$refcounts)) {
+	$path = $self->__path_object() . '/' . $hash;
+	if (!(-e $path)) {
+	    $unfixed->{$hash} = 1;
+	}
+    }
+
+    return 0;
+}
+
+sub _checkup_refcounts
+{
+    my ($self, $refcounts, $unfixed) = @_;
+    my ($fh, $dh, $hash, $path);
+
+    if (!opendir($dh, $self->__path_refcount())) {
+	return throw(ESYS, $!, $self->__path_refcount());
+    } else {
+	foreach $hash (grep { ! /^\.\.?$/ } readdir($dh)) {
+	    if (defined($refcounts->{$hash}) && !defined($unfixed->{$hash})) {
+		next;
+	    }
+
+	    $path = $self->__path_refcount() . '/' . $hash;
+	    unlink($path);
+	}
+	closedir($dh);
+    }
+
+    foreach $hash (keys(%$refcounts)) {
+	if (defined($unfixed->{$hash})) {
+	    next;
+	}
+
+	$path = $self->__path_refcount() . '/' . $hash;
+	if (!open($fh, '>', $path)) {
+	    notify(WARN, ESYS, $!, $path);
+	    next;
+	}
+
+	printf($fh "%d\n", $refcounts->{$hash});
+	close($fh);
+    }
+
+    return 0;
+}
+
+sub _checkup_garbages
+{
+    my ($self, $refcounts, $unfixed) = @_;
+    my ($dh, $hash, $path);
+
+    if (!opendir($dh, $self->__path_object())) {
+	return throw(ESYS, $!, $self->__path_object());
+    } else {
+	foreach $hash (grep { ! /^\.\.?$/ } readdir($dh)){
+	    if (defined($refcounts->{$hash}) && !defined($unfixed->{$hash})) {
+		next;
+	    }
+
+	    $path = $self->__path_object() . '/' . $hash;
+	    unlink($path);
+	}
+	closedir($dh);
+    }
+
+    return 0;
+}
+
+sub _checkup
+{
+    my ($self, $refcounts) = @_;
+    my %unfixed;
+
+    if (!defined($self->_checkup_hashes())) {
+	return undef;
+    }
+
+    if (!defined($self->_checkup_missings($refcounts, \%unfixed))) {
+	return undef;
+    }
+
+    if (!defined($self->_checkup_garbages($refcounts, \%unfixed))) {
+	return undef;
+    }
+
+    if (!defined($self->_checkup_refcounts($refcounts, \%unfixed))) {
+	return undef;
+    }
+
+    return [ keys(%unfixed) ];
+}
+
+sub checkup
+{
+    my ($self, $refcounts, @err) = @_;
+    my ($ref, $count);
+
+    if (!defined($refcounts)) {
+	return throw(ESYNTAX, undef);
+    } elsif (ref($refcounts) ne 'HASH') {
+	return throw(EINVLD, $refcounts);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    foreach $ref (keys(%$refcounts)) {
+	if (ref($ref) ne '') {
+	    return throw(EINVLD, $refcounts);
+	} elsif (!($ref =~ /^[0-9a-f]{32}$/)) {
+	    return throw(EINVLD, $refcounts);
+	}
+    }
+
+    foreach $count (values(%$refcounts)) {
+	if (ref($count) ne '') {
+	    return throw(EINVLD, $refcounts);
+	} elsif (!($count =~ /^\d+$/)) {
+	    return throw(EINVLD, $refcounts);
+	}
+    }
+
+    return $self->_checkup($refcounts);
 }
 
 
