@@ -203,23 +203,29 @@ sub _get_directory
     return \@entries;
 }
 
-sub _get_properties
+sub _get_properties_path
 {
-    my ($self, $path, @err) = @_;
-    my $hash = md5_hex($path);
-    my $ppath = $self->__path_property() . '/' . $hash;
+    my ($self, $ppath) = @_;
     my ($line, $key, $value, $length, $fh);
     my %properties;
 
-    if (!open($fh, '<', $ppath)) { return undef; }
+    if (!open($fh, '<', $ppath)) {
+	return undef;
+    }
     
     while (defined($line = <$fh>)) {
 	chomp($line);
 	
-	if (!($line =~ /^(\S+) => (.*)$/)) { goto err; }
+	if (!($line =~ /^(\S+) => (.*)$/)) {
+	    goto err;
+	}
+
 	($key, $value) = ($1, $2);
 
-	if (!($value =~ /^(\d+):(.*)$/)) { close($fh); goto err; }
+	if (!($value =~ /^(\d+):(.*)$/)) {
+	    goto err;
+	}
+
 	($length, $value) = ($1, $2);
 
 	while (length($value) < $length && defined($line = <$fh>)) {
@@ -227,7 +233,9 @@ sub _get_properties
 	    $value .= "\n" . $line;
 	}
 
-	if (!defined($line) || length($value) != $length) { goto err; }
+	if (!defined($line) || length($value) != $length) {
+	    goto err;
+	}
 
 	$properties{$key} = $value;
     }
@@ -239,6 +247,17 @@ sub _get_properties
     return undef;
 }
 
+sub _get_properties
+{
+    my ($self, $path) = @_;
+    my ($hash, $ppath);
+
+    $hash = md5_hex($path);
+    $ppath = $self->__path_property() . '/' . $hash;
+
+    return $self->_get_properties_path($ppath);
+}
+
 sub _flush
 {
     my ($self) = @_;
@@ -246,6 +265,171 @@ sub _flush
     # nothing to do
 
     return 1;
+}
+
+
+sub _checkup_content_file
+{
+    my ($self, $refcounts, $corrupted, $hashes, $path) = @_;
+    my ($cpath, $fh, $hash);
+
+    $hashes->{md5_hex($path)} = $path;
+
+    $cpath = $self->__path_content() . $path;
+    if ((-s $cpath) != 32) {
+	$corrupted->{$path} = 1;
+	return 0;
+    }
+
+    if (!open($fh, '<', $cpath)) {
+	return throw(ESYS, $!, $cpath);
+    } else {
+	chomp($hash = <$fh>);
+	close($fh);
+    }
+
+    if (!($hash =~ /^[0-9a-f]{32}$/)) {
+	$corrupted->{$path} = 1;
+	return 0;
+    }
+
+    $refcounts->{$hash} += 1;
+    return 0;
+}
+
+sub _checkup_content_directory
+{
+    my ($self, $refcounts, $corrupted, $hashes, $path) = @_;
+    my ($cpath, $dh, $entry, $epath, $sep, $qpath, $ret);
+
+    $hashes->{md5_hex($path)} = $path;
+
+    if ($path eq '/') {
+	$sep = '';
+    } else {
+	$sep = '/';
+    }
+
+    $cpath = $self->__path_content() . $path;
+    if (!opendir($dh, $cpath)) {
+	return throw(ESYS, $!, $cpath);
+    } else {
+	$ret = 0;
+	foreach $entry (grep { ! /^\.\.?$/ } readdir($dh)) {
+	    $epath = $path . $sep . $entry;
+	    $qpath =$self->__path_content() . $epath;
+	    if (-f $qpath) {
+		$ret = $self->_checkup_content_file($refcounts,
+						    $corrupted,
+						    $hashes, $epath);
+	    } elsif (-d $qpath) {
+		$ret = $self->_checkup_content_directory($refcounts,
+							 $corrupted,
+							 $hashes, $epath);
+	    }
+
+	    if (!defined($ret)) {
+		last;
+	    }
+	}
+	closedir($dh);
+    }
+
+    return $ret;
+}
+
+
+sub _checkup_property
+{
+    my ($self, $corrupted, $hashes, $entry, $cpath) = @_;
+    my ($ppath, $ret);
+
+    $ppath = $self->__path_property() . '/' . $entry;
+    $ret = $self->_get_properties_path($ppath);
+
+    if (!defined($ret)) {
+	$corrupted->{$cpath} = 1;
+    }
+
+    return 0;
+}
+
+sub _checkup_properties
+{
+    my ($self, $corrupted, $hashes) = @_;
+    my ($dh, $entry, $cpath);
+
+    if (!opendir($dh, $self->__path_property())) {
+	return throw(ESYS, $!, $self->__path_property());
+    } else {
+	foreach $entry (grep { ! /^\.\.?$/ } readdir($dh)) {
+	    $cpath = $hashes->{$entry};
+	    if (!defined($cpath)) {
+		$corrupted->{$entry} = 1;
+		next;
+	    }
+
+	    $self->_checkup_property($corrupted, $hashes, $entry, $cpath);
+
+	    delete($hashes->{$entry});
+	}
+	closedir($dh);
+    }
+
+    return 0;
+}
+
+sub _checkup
+{
+    my ($self, $refcounts) = @_;
+    my (%corrupted, %hashes, $entry);
+
+    if (!defined($self->_checkup_content_directory($refcounts, \%corrupted,
+		 \%hashes, '/'))) {
+	return undef;
+    }
+
+    if (!defined($self->_checkup_properties(\%corrupted, \%hashes))) {
+	return undef;
+    }
+
+    foreach $entry (values(%hashes)) {
+	$corrupted{$entry} = 1;
+    }
+
+    return [ keys(%corrupted) ];
+}
+
+sub checkup
+{
+    my ($self, $refcounts, @err) = @_;
+    my ($ref, $count);
+
+    if (!defined($refcounts)) {
+	return throw(ESYNTAX, undef);
+    } elsif (ref($refcounts) ne 'HASH') {
+	return throw(EINVLD, $refcounts);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    foreach $ref (keys(%$refcounts)) {
+	if (ref($ref) ne '') {
+	    return throw(EINVLD, $refcounts);
+	} elsif (!($ref =~ /^[0-9a-f]{32}$/)) {
+	    return throw(EINVLD, $refcounts);
+	}
+    }
+
+    foreach $count (values(%$refcounts)) {
+	if (ref($count) ne '') {
+	    return throw(EINVLD, $refcounts);
+	} elsif (!($count =~ /^\d+$/)) {
+	    return throw(EINVLD, $refcounts);
+	}
+    }
+
+    return $self->_checkup($refcounts);
 }
 
 

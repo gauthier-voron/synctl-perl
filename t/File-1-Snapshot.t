@@ -6,7 +6,7 @@ use warnings;
 use t::File;
 use t::Snapshot;
 
-use Test::More tests => 1 + test_snapshot_count();;
+use Test::More tests => 1 + test_snapshot_count() + 18;
 
 BEGIN
 {
@@ -137,8 +137,127 @@ sub check
     is(1, 1, 'snapshot content');
 }
 
+sub write_content
+{
+    my ($path, $content) = @_;
+    my ($fh);
+
+    if (!open($fh, '>', $path)) {
+	die ("$path: $!");
+    }
+
+    printf($fh "%s", $content);
+    close($fh);
+}
+
+
+my $snapshot;
+my ($refcounts);
+
 
 test_snapshot(\&alloc, \&check);
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1, GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }]);
+unlink($snapshot->path() . '/property/6666cd76f96956469e7be39d750cc7d9');
+is_deeply($snapshot->checkup($refcounts), [ '/' ],
+	  'removal of directory properties checked');
+is_deeply($refcounts, {}, 'removal of directory properties handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1, GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }]);
+write_content($snapshot->path() . '/property/6666cd76f96956469e7be39d750cc7d9',
+	      "bad content\n");
+is_deeply($snapshot->checkup($refcounts), [ '/' ],
+	  'corruption of directory properties checked');
+is_deeply($refcounts, {}, 'corruption of directory properties handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1, GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }]);
+write_content($snapshot->path() . '/property/badref', "MODE => 644\n");
+is_deeply($snapshot->checkup($refcounts), [ 'badref' ],
+	  'addition of properties checked');
+is_deeply($refcounts, {}, 'addition of properties handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1 , GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }],
+		  ['/a', 'f', '00000000000000000000000000000000',
+		   { MODE => 644, USER => 1 , GROUP => 1,
+		     MTIME => 30, INODE => 1, SIZE => 12 }]);
+unlink($snapshot->path() . '/property/0639767f3e9eaad729b54037a7e2abf5');
+is_deeply($snapshot->checkup($refcounts), [ '/a' ],
+	  'removal of file properties checked');
+is_deeply($refcounts, { '00000000000000000000000000000000' => 1 },
+	  'removal of file properties handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1 , GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }],
+		  ['/a', 'f', 'badref',
+		   { MODE => 644, USER => 1 , GROUP => 1,
+		     MTIME => 30, INODE => 1, SIZE => 12 }]);
+is_deeply($snapshot->checkup($refcounts), [ '/a' ],
+	  'modification of file content checked');
+is_deeply($refcounts, {}, 'modification of file content handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1 , GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }],
+		  ['/a', 'f', '00000000000000000000000000000000',
+		   { MODE => 644, USER => 1 , GROUP => 1,
+		     MTIME => 30, INODE => 1, SIZE => 12 }]);
+unlink($snapshot->path() . '/content/a');
+is_deeply($snapshot->checkup($refcounts), ['0639767f3e9eaad729b54037a7e2abf5'],
+	  'removal of file content checked');
+is_deeply($refcounts, {}, 'removal of file content handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1 , GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }],
+		  ['/a', 'f', '00000000000000000000000000000000',
+		   { MODE => 644, USER => 1 , GROUP => 1,
+		     MTIME => 30, INODE => 1, SIZE => 12 }]);
+is_deeply($snapshot->checkup($refcounts), [], 'no error checked');
+is_deeply($refcounts, { '00000000000000000000000000000000' => 1 },
+	  'no error handled');
+
+
+$refcounts = {};
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1 , GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }],
+		  ['/a', 'f', '00000000000000000000000000000000',
+		   { MODE => 644, USER => 1 , GROUP => 1,
+		     MTIME => 30, INODE => 1, SIZE => 12 }],
+		  ['/b', 'f', '00000000000000000000000000000000',
+		   { MODE => 755, USER => 3 , GROUP => 3,
+		     MTIME => 40, INODE => 2, SIZE => 12 }]);
+is_deeply($snapshot->checkup($refcounts), [], 'no error multiref checked');
+is_deeply($refcounts, { '00000000000000000000000000000000' => 2 },
+	  'no error multiref handled');
+
+
+$refcounts = { '11111111111111111111111111111111' => 3,
+	       '00000000000000000000000000000000' => 6 };
+$snapshot = alloc(['/', 'd', { MODE => 755, USER => 1 , GROUP => 1,
+			       MTIME => 30, INODE => 1, SIZE => 4096 }],
+		  ['/a', 'f', '00000000000000000000000000000000',
+		   { MODE => 644, USER => 1 , GROUP => 1,
+		     MTIME => 30, INODE => 1, SIZE => 12 }]);
+is_deeply($snapshot->checkup($refcounts), [], 'no error not empty checked');
+is_deeply($refcounts, { '11111111111111111111111111111111' => 3,
+                        '00000000000000000000000000000000' => 7 },
+	  'no error not empty handled');
 
 
 1;
