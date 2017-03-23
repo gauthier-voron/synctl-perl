@@ -6,7 +6,7 @@ use warnings;
 use t::Deposit;
 use t::File;
 
-use Test::More tests => 6 + test_deposit_count() + 24;
+use Test::More tests => 6 + test_deposit_count() + 28;
 
 
 BEGIN
@@ -119,6 +119,14 @@ is(read_content($path), '1', 'removal of refcount file fixed');
 
 $deposit = alloc('A');
 $path = $deposit->path() . '/refcount/' . $ref;
+unlink($path);
+rmdir($deposit->path() . '/refcount');
+is_deeply($deposit->checkup({ $ref => 1 }), [],
+	  'removal of refcount directory checked');
+is(read_content($path), '1', 'removal of refcount directory fixed');
+
+$deposit = alloc('A');
+$path = $deposit->path() . '/refcount/' . $ref;
 is_deeply($deposit->checkup({}), [], 'addition of refcount file checked');
 ok(!(-e $path), 'addition of refcount file fixed');
 
@@ -146,6 +154,15 @@ is_deeply($deposit->checkup({ $ref => 1 }), [ $ref ],
 	  'removal of object file checked');
 ok(!(-e $deposit->path() . '/refcount/' . $ref),
    'removal of object file fixed');
+
+$deposit = alloc('A');
+$path = $deposit->path() . '/object/' . $ref;
+unlink($path);
+rmdir($deposit->path() . '/object');
+is_deeply($deposit->checkup({ $ref => 1 }), [ $ref ],
+	  'removal of object directory checked');
+ok(!(-e $deposit->path() . '/refcount/' . $ref),
+   'removal of object directory fixed');
 
 $deposit = alloc('A');
 $path = $deposit->path() . '/object/' . $ref;

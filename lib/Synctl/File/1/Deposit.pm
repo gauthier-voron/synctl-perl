@@ -404,6 +404,14 @@ sub _checkup
     my ($self, $refcounts) = @_;
     my %unfixed;
 
+    if (!(-e $self->__path_object())) {
+	mkdir($self->__path_object());
+    }
+
+    if (!(-e $self->__path_refcount())) {
+	mkdir($self->__path_refcount());
+    }
+
     if (!defined($self->_checkup_hashes())) {
 	return undef;
     }
