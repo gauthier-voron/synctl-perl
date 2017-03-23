@@ -25,6 +25,7 @@ sub _new
 
 
 sub _init           { confess('abstract method'); }
+sub _sane           { confess('abstract method'); }
 sub _id             { confess('abstract method'); }
 sub _date           { confess('abstract method'); }
 sub _set_file       { confess('abstract method'); }
@@ -77,6 +78,19 @@ sub init
     }
 
     return $self->_init();
+}
+
+sub sane
+{
+    my ($self, $value, @err) = @_;
+
+    if (defined($value) && !(grep {$value eq $_ } qw(0 1))) {
+	return throw(EINVLD, $value);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    return $self->_sane($value);
 }
 
 sub id

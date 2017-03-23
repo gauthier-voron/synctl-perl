@@ -85,6 +85,106 @@ sub __path_date
     return $self->__path() . '/date';
 }
 
+sub __path_config
+{
+    my ($self) = @_;
+    return $self->__path() . '/config';
+}
+
+
+sub _default_config
+{
+    my ($self) = @_;
+
+    return {
+	sane => 1
+    };
+}
+
+sub __read_config
+{
+    my ($self) = @_;
+    my ($fh, $path, $line, $config);
+
+    $path = $self->__path_config();
+    $config = $self->_default_config();
+
+    if (!(-e $path)) {
+	return $config;
+    }
+
+    if (!open($fh, '<', $path)){
+	return throw(ESYS, $!, $path);
+    }
+
+    while (defined($line = <$fh>)) {
+	chomp($line);
+	$line =~ s/#.*$//;
+	next if ($line =~ /^\s*$/);
+
+	if (!($line =~ /^\s*(.*?)\s*=\s*(.*?)\s*$/)) {
+	    close($fh);
+	    return throw(ECONFIG, $path, $line);
+	}
+
+	$config->{$1} = $2;
+    }
+
+    close($fh);
+    return $config;
+}
+
+sub __write_config
+{
+    my ($self, $config) = @_;
+    my ($fh, $key, $path, $value, $defconfig);
+
+    $path = $self->__path_config();
+    $defconfig = $self->_default_config();
+
+    if (!open($fh, '>', $path)) {
+	return throw(ESYS, $!, $path);
+    }
+
+    foreach $key (keys(%$config)) {
+	$value = $config->{$key};
+	if ($value eq $defconfig->{$key}) {
+	    next;
+	}
+
+	printf($fh "%s = %s\n", $key, $value);
+	$defconfig->{$key} = $value;
+    }
+
+    close($fh);
+    return $defconfig;
+}
+
+sub _config
+{
+    my ($self, $value) = @_;
+
+    if (defined($value)){
+	return $self->__write_config($value);
+    }
+
+    return $self->__read_config($value);
+}
+
+sub _sane
+{
+    my ($self, $value) = @_;
+    my $config = $self->_config();
+
+    if (defined($value)) {
+	$config->{sane} = $value;
+	$self->_config($config);
+    }
+
+    return $config->{sane};
+}
+
+
 
 sub _date
 {

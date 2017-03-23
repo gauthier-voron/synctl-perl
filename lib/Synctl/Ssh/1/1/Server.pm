@@ -240,6 +240,24 @@ sub __snapshot_date
     }
 }
 
+sub __snapshot_sane
+{
+    my ($self, $rtag, $id, $value) = @_;
+    my $snapshot = $self->__get_snapshot($id);
+    my $connection = $self->__connection();
+    my $ret;
+
+    if (defined($snapshot)) {
+	$ret = $snapshot->sane($value);
+    } else {
+	$ret = undef;
+    }
+
+    if (defined($rtag)) {
+	$connection->send($rtag, undef, $ret);
+    }
+}
+
 sub __snapshot_set_file
 {
     my ($self, $rtag, $id, $path, $content, %args) = @_;
@@ -453,6 +471,7 @@ sub _serve
     $self->__hook('deposit_flush',           \&__deposit_flush);
 
     $self->__hook('snapshot_date',           \&__snapshot_date);
+    $self->__hook('snapshot_sane',           \&__snapshot_sane);
     $self->__hook('snapshot_set_file',       \&__snapshot_set_file);
     $self->__hook('snapshot_set_buffer',     \&__snapshot_set_buffer);
     $self->__hook('snapshot_set_directory',  \&__snapshot_set_directory);
