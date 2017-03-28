@@ -11,6 +11,7 @@ use Scalar::Util qw(blessed);
 
 use Synctl qw(:error :verbose);
 use Synctl::File;
+use Synctl::File::1::Fsck;
 
 
 sub __deposit  { return shift()->_rw('__deposit',  @_); }
@@ -174,6 +175,15 @@ sub _delete
 
     notify(INFO, IFDELET, $snapshot->path());
     return $self->__delete($snapshot->path());
+}
+
+sub _fsck
+{
+    my ($self) = @_;
+    my $fsck = Synctl::File::1::Fsck->new
+	($self->_deposit(), $self->_snapshot());
+
+    return $fsck->checkup();
 }
 
 

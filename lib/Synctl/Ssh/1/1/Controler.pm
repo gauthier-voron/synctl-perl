@@ -117,6 +117,15 @@ sub delete
     return $connection->call('delete', $snapshot->id());
 }
 
+sub _fsck
+{
+    my ($self) = @_;
+    my ($connection);
+
+    $connection = $self->__connection();
+    return $connection->call('fsck');
+}
+
 
 1;
 __END__
