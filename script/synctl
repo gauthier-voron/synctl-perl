@@ -12,6 +12,7 @@ use Synctl::Verbose;
 
 
 my %MAINS = (
+    'fsck'  => \&fsck_main,
     'help'  => \&help_main,
     'init'  => \&init_main,
     'list'  => \&list_main,
@@ -22,6 +23,7 @@ my %MAINS = (
     );
 
 my %USAGES = (
+    'fsck'  => \&fsck_usage,
     'help'  => \&help_usage,
     'init'  => \&init_usage,
     'list'  => \&list_usage,
@@ -32,6 +34,7 @@ my %USAGES = (
     );
 
 my %INFOS = (
+    'fsck'  => 'verify and repair server content',
     'help'  => 'obtain some help for a command',
     'init'  => 'initialize a local server',
     'list'  => 'list the snapshots of a given server',
@@ -453,6 +456,82 @@ sub list_main
 	$text =~ s|(%%)*%u|$u|g;
 	printf("%s\n", $text);
     }
+}
+
+
+sub fsck_usage
+{
+    return <<"EOF";
+Usage: $PROGRAM fsck [--server=<location>] [--directory=<path>[:<path>...]]
+       [--ssh-local=<command>] [--ssh-remote=<command>] <profile>
+
+Check the specified server for errors and try to repair them. If some errors
+cannot be fixed, the corrupted snapshots are marked and the command returns
+1, otherwise it returns 0.
+This operation can takes a long time.
+
+Options:
+  -C <path>, --directory=<path>         Change the search path for the profile
+                                        file. This options may be specified
+                                        many times to indicate many search
+                                        directories.
+
+  -s <location>, --server=<location>    Indicate the location of the server to
+                                        send the snapshot to. A location has
+                                        the form
+                                        <protocol>://<path><:remote-path>.
+                                        If the protocol is 'file', it may be
+                                        omitted.
+
+  --ssh-local=<command>                 Use the specified command on the local
+                                        side when accessing an ssh server.
+                                        Default is 'ssh'.
+
+  --ssh-remote=<command>                Use the specified command on the remote
+                                        side when accessing an ssh server.
+                                        Default is 'synctl serve'.
+EOF
+}
+
+sub fsck_main
+{
+    my ($profile_name, @err);
+    my (@profile_paths, $server);
+    my ($sshlocal, $sshremote, %opts);
+    my ($profile, $controler);
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	'C|directory=s' => \@profile_paths,
+	's|server=s'    => \$server,
+	'v|verbose:-1'  => \&verbose,
+	'ssh-local=s'   => \$sshlocal,
+	'ssh-remote=s'  => \$sshremote
+	);
+    $SIG{__WARN__} = undef;
+
+    ($profile_name, @err) = @_;
+
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    }
+
+    $profile = make_profile($profile_name, @profile_paths);
+
+    if (!defined($server)) { $server = $profile->server(); }
+    if (!defined($server)) {
+	error("missing server location");
+    } else {
+	notify(DEBUG, ICONFIG, 'server', $server);
+    }
+
+    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
+    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
+
+    $controler = Synctl::controler($server, %opts);
+    return $controler->fsck();
 }
 
 
