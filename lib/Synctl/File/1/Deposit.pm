@@ -412,18 +412,22 @@ sub _checkup
 	mkdir($self->__path_refcount());
     }
 
+    notify(DEBUG, ICKSTEP, 1, 4, 'checksum checkup');
     if (!defined($self->_checkup_hashes())) {
 	return undef;
     }
 
+    notify(DEBUG, ICKSTEP, 2, 4, 'dangling reference checkup');
     if (!defined($self->_checkup_missings($refcounts, \%unfixed))) {
 	return undef;
     }
 
+    notify(DEBUG, ICKSTEP, 3, 4, 'orphaned objects checkup');
     if (!defined($self->_checkup_garbages($refcounts, \%unfixed))) {
 	return undef;
     }
 
+    notify(DEBUG, ICKSTEP, 4, 4, 'reference count checkup');
     if (!defined($self->_checkup_refcounts($refcounts, \%unfixed))) {
 	return undef;
     }

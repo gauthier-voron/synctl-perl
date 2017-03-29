@@ -484,15 +484,18 @@ sub _checkup
     my ($self, $refcounts) = @_;
     my (%corrupted, %hashes, $entry);
 
+    notify(DEBUG, ICKSTEP, 1, 3, 'reference checkup');
     if (!defined($self->_checkup_content_directory($refcounts, \%corrupted,
 		 \%hashes, '/'))) {
 	return undef;
     }
 
+    notify(DEBUG, ICKSTEP, 2, 3, 'properties checkup');
     if (!defined($self->_checkup_properties(\%corrupted, \%hashes))) {
 	return undef;
     }
 
+    notify(DEBUG, ICKSTEP, 3, 3, 'undescribed checkup');
     foreach $entry (values(%hashes)) {
 	$corrupted{$entry} = 1;
     }

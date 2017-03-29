@@ -52,12 +52,14 @@ sub checkup
     foreach $snapshot (@{$self->_snapshots()}) {
 	%references = ();
 
+	notify(INFO, ISCHECK, $snapshot->id());
 	$ret = $snapshot->checkup(\%references);
 	if (!defined($ret)) {
 	    return undef;
 	}
 
 	if (@$ret) {
+	    notify(WARN, ISCORPT, $snapshot->id());
 	    $unfixed = 1;
 	    $snapshot->sane(0);
 	} else {
@@ -70,6 +72,7 @@ sub checkup
 	}
     }
 
+    notify(INFO, IDCHECK);
     $ret = $self->_deposit()->checkup(\%refcounts);
     if (!defined($ret)) {
 	return undef;
@@ -86,6 +89,9 @@ sub checkup
 	}
 
 	foreach $snapshot (@$invalidate) {
+	    if ($snapshot->sane()) {
+		notify(WARN, ISCORPT, $snapshot->id());
+	    }
 	    $snapshot->sane(0);
 	}
     }
