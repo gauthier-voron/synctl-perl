@@ -501,6 +501,10 @@ sub serve
 	exit (1);
     });
 
+    Configure(VERBOSE => sub {
+	$server->notify(@_);
+    });
+
     return $server->serve();
 }
 

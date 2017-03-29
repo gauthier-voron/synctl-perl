@@ -468,6 +468,14 @@ sub _report
     $connection->send('report', undef, $code, @hints);
 }
 
+sub _notify
+{
+    my ($self, $code, @hints) = @_;
+    my $connection = $self->__connection();
+
+    $connection->send('notify', undef, $code, @hints);
+}
+
 sub _serve
 {
     my ($self) = @_;
