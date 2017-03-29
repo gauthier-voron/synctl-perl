@@ -23,26 +23,30 @@ use constant {
     INFO    => 3,
     DEBUG   => 4,
 
+    IFCHECK => 'Check file',          # path of the file
     IFCREAT => 'Create file',         # path of the file created
     IFDELET => 'Delete file',         # path of the file deleted
-    ILCREAT => 'Create link',         # path of the source, path of the dest
-    IRGET   => 'Create reference',    # hash of the reference
-    IRPUT   => 'Delete reference',    # hash of the reference
-    IWSEND  => 'Will send bytes',     # amount of bytes to be sent
-    IWRECV  => 'Will receive bytes',  # amount of bytes to be received
-    ICSEND  => 'Send bytes',          # amount of sent bytes
-    ICRECV  => 'Receive bytes',       # amount of received bytes
-    ICONFIG => 'Use configuration',   # what is configured, at what value
-    IRLOAD  => 'Load references',     # <nothing>
-    IRDELET => 'Deleting references', # <nothing>
-    IFCHECK => 'Check file',          # path of the file
     IFPROCS => 'Process file',        # path of the file
     IFSEND  => 'Send file',           # path of the file
     IFRECV  => 'Receive file',        # path of the file
+    ILCREAT => 'Create link',         # path of the source, path of the dest
+    IRGET   => 'Create reference',    # hash of the reference
+    IRPUT   => 'Delete reference',    # hash of the reference
+    IRLOAD  => 'Load references',     # <nothing>
     IREGEX  => 'Build regex',         # include/exclude, from, to
+    IRDELET => 'Deleting references', # <nothing>
+    ICSEND  => 'Send bytes',          # amount of sent bytes
+    ICRECV  => 'Receive bytes',       # amount of received bytes
+    ICONFIG => 'Use configuration',   # what is configured, at what value
+    ICKSTEP => 'Checkup step',        # current step, total step, step name
     INODMAP => 'Nodemap update',      # client/server, key, value
+    ISCHECK => 'Snapshot checkup',    # snapshot id
+    ISCORPT => 'Snapshot corrupted',  # snapshot id
+    IDCHECK => 'Deposit checkup',     # <nothing>
     IUMODE  => 'Unexpected mode',     # file, mode
     IUCONT  => 'Unexpected content',  # file, content
+    IWSEND  => 'Will send bytes',     # amount of bytes to be sent
+    IWRECV  => 'Will receive bytes',  # amount of bytes to be received
     IPROT   => 'Protocol message',    # transmit/receive/compute, message
     IEXEC   => 'Execute command',     # executed command
 };
@@ -55,10 +59,20 @@ our @ISA = qw(Exporter);
 our %EXPORT_TAGS = (
     'error'   => [ qw(throw ESYNTAX EINVLD EPERM ESYS EPROT ECONFIG ECSERV
                       ECID) ],
-    'verbose' => [ qw(notify ERROR WARN INFO DEBUG IFCREAT IFDELET ILCREAT
-                      IRGET IRPUT ICSEND ICRECV ICONFIG IRLOAD IFCHECK IFPROCS
-                      IFSEND IFRECV IREGEX INODMAP IUMODE IUCONT IRDELET IWSEND
-                      IWRECV IPROT IEXEC synthetic) ],
+    'verbose' => [ qw(notify
+                      ERROR WARN INFO DEBUG
+                      IFCHECK IFCREAT IFDELET IFPROCS IFSEND IFRECV
+                      ILCREAT
+                      IRGET IRPUT IRLOAD IREGEX IRDELET
+                      ICSEND ICRECV ICONFIG ICKSTEP
+                      INODMAP
+                      ISCHECK ISCORPT
+                      IDCHECK
+                      IUMODE IUCONT
+                      IWSEND IWRECV
+                      IPROT
+                      IEXEC
+                      synthetic) ],
     'all'     => [ qw(Configure backend init controler send list recv serve) ]
     );
 
@@ -485,6 +499,10 @@ sub serve
     Configure(ERROR => sub {
 	$server->report(@_);
 	exit (1);
+    });
+
+    Configure(VERBOSE => sub {
+	$server->notify(@_);
     });
 
     return $server->serve();

@@ -220,12 +220,15 @@ sub read
     $ln = 0;
     while (defined($line = $provider->())) {
 	$ln++;
+	chomp($line);
 
 	$data = $line;
 	$data =~ s/#.*//;
 	$data =~ s/^\s*//;
 	$data =~ s/\s*$//;
 	next if ($data eq '');
+
+	notify(DEBUG, ICONFIG, "profile line", "'$line'");
 
 	if (!($data =~ m|^([^=]+?)\s*=\s*(.*)$|)) {
 	    goto err;

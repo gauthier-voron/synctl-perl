@@ -168,6 +168,15 @@ sub _date
     return $connection->call('snapshot_date', $id);
 }
 
+sub _sane
+{
+    my ($self, $value) = @_;
+    my $connection = $self->__connection();
+    my $id = $self->__id();
+
+    return $connection->call('snapshot_sane', $id, $value);
+}
+
 sub _set_file
 {
     my ($self, $path, $content, %args) = @_;

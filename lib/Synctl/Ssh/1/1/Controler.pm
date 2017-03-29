@@ -7,7 +7,7 @@ use warnings;
 use Carp;
 use Scalar::Util qw(blessed);
 
-use Synctl qw(:error);
+use Synctl qw(:error :verbose);
 use Synctl::Ssh::1::1::Connection;
 use Synctl::Ssh::1::1::Deposit;
 use Synctl::Ssh::1::1::Snapshot;
@@ -25,6 +25,13 @@ sub __init_hooks
 	my ($stag, $rtag, $code, @hints) = @_;
 
 	throw($code, @hints);
+	return 1;
+    });
+
+    $connection->recv('notify', sub {
+	my ($stag, $rtag, $code, @hints) = @_;
+
+	notify($code, @hints);
 	return 1;
     });
 }
@@ -115,6 +122,15 @@ sub delete
 
     $connection = $self->__connection();
     return $connection->call('delete', $snapshot->id());
+}
+
+sub _fsck
+{
+    my ($self) = @_;
+    my ($connection);
+
+    $connection = $self->__connection();
+    return $connection->call('fsck');
 }
 
 
