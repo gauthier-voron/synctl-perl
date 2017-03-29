@@ -20,6 +20,9 @@ BEGIN
 }
 
 
+Synctl::Configure(VERBOSE => sub {});
+
+
 sub alloc
 {
     my $box = mktroot();
