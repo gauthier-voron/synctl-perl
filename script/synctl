@@ -83,10 +83,12 @@ sub opterr
 
 sub syncerr
 {
-    my ($code, $message) = @_;
+    my ($code, @messages) = @_;
+    my $message = join(': ', @messages);
 
     $code = lc($code);
-    error("$code '$message'");
+    chomp($message);
+    error("$code: $message");
 }
 
 sub verbose
