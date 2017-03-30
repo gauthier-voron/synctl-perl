@@ -64,7 +64,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw(
 );
 
-our $VERSION = '1.0.2';
+our $VERSION = '1.0.3';
 our $AUTHOR  = 'Gauthier Voron';
 our $MAILTO  = 'gauthier.voron@mnesic.fr';
 
