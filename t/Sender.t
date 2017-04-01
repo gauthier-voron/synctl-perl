@@ -187,27 +187,31 @@ is_deeply(\%hash, {
 	  }, 'send complete snapshot path content');
 
 
-$box = mktroot();
-$client = mktdir($box . '/client');
-mktdir($box . '/client/dir1', MODE => 0000);
+SKIP : {
+    skip 'running as root', 4 if ($> == 0);
 
-$deposit = t::MockDeposit->new('', {}, {}, $deposit_mapper);
-$snapshot = t::MockSnapshot->new({}, {});
-$seeker = Synctl::Seeker->new($client);
-$sender = Synctl::Sender->new($deposit, $snapshot, $seeker);
+    $box = mktroot();
+    $client = mktdir($box . '/client');
+    mktdir($box . '/client/dir1', MODE => 0000);
 
-is($sender->send(), 1, 'send corner case snapshot');
+    $deposit = t::MockDeposit->new('', {}, {}, $deposit_mapper);
+    $snapshot = t::MockSnapshot->new({}, {});
+    $seeker = Synctl::Seeker->new($client);
+    $sender = Synctl::Sender->new($deposit, $snapshot, $seeker);
 
-is_deeply($deposit->{'content'}, {},
-	  'send corner case snapshot deposit content');
+    is($sender->send(), 1, 'send corner case snapshot');
 
-is_deeply($deposit->{'reference'}, {},
-	  'send corner case snapshot deposit reference');
+    is_deeply($deposit->{'content'}, {},
+	      'send corner case snapshot deposit content');
 
-is_deeply($snapshot->{'content'}, {
-    '/'           => [],
-    '/dir1'       => [] },
-	  'send corner case snapshot path content');
+    is_deeply($deposit->{'reference'}, {},
+	      'send corner case snapshot deposit reference');
+
+    is_deeply($snapshot->{'content'}, {
+	'/'           => [],
+	'/dir1'       => [] },
+	'send corner case snapshot path content');
+}
 
 
 1;

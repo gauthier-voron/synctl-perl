@@ -1,4 +1,4 @@
-Synctl version 1.0.2
+Synctl version 1.0.3
 ====================
 
 Backup and restore your files locally or through ssh with the perl Synctl
@@ -41,7 +41,7 @@ This module requires these other modules and libraries:
   
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2016 by Gauthier Voron
+Copyright (C) 2016-2017 by Gauthier Voron
 
 This library is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
