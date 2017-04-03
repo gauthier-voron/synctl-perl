@@ -25,6 +25,8 @@ t/Ssh-1-1-Deposit.t
 t/Ssh-1-1-Snapshot.t
 t/Synctl.t
 t/synconvert.t
+t/synctl-recv.t
+t/synctl-send.t
 script/synctl
 script/synconvert
 lib/Synctl.pm
