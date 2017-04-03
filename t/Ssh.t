@@ -38,8 +38,8 @@ alarm(3);
 
 # Client side
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '1.1     ');
 $controler = Synctl::Ssh->controler($ain, $aout);
 $msg = <$bin>;
@@ -49,8 +49,8 @@ ok(defined($controler) && blessed($controler) &&
    $controler->isa('Synctl::Controler'), 'controler instance with 1.1');
 $controler = undef;
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '1.99    ');
 $controler = Synctl::Ssh->controler($ain, $aout);
 $msg = <$bin>;
@@ -61,8 +61,8 @@ ok(defined($controler) && blessed($controler) &&
    $controler->isa('Synctl::Controler'), 'controler instance with 1.99');
 $controler = undef;
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '99.1    ');
 $controler = Synctl::Ssh->controler($ain, $aout);
 $msg = <$bin>;
@@ -76,8 +76,8 @@ $controler = undef;
 
 $controler = Synctl::FileControler->new(t::MockDeposit->new(), $box);
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '1.1     1.1     ');
 $server = Synctl::Ssh->server($ain, $aout, $controler);
 $msg = <$bin>;
@@ -87,8 +87,8 @@ ok(defined($server) && blessed($server) && $server->isa('Synctl::SshServer'),
    'server instance with 1.1 + 1.1');
 
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '1.99    1.1     ');
 $server = Synctl::Ssh->server($ain, $aout, $controler);
 $msg = <$bin>;
@@ -98,8 +98,8 @@ ok(defined($server) && blessed($server) && $server->isa('Synctl::SshServer'),
    'server instance with 1.99 + 1.1');
 
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '99.1    1.1     ');
 $server = Synctl::Ssh->server($ain, $aout, $controler);
 $msg = <$bin>;
@@ -109,8 +109,8 @@ ok(defined($server) && blessed($server) && $server->isa('Synctl::SshServer'),
    'server instance with 99.1 + 1.1');
 
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '99.1    99.1    ');
 $server = Synctl::Ssh->server($ain, $aout, $controler);
 $msg = <$bin>;
@@ -119,8 +119,8 @@ is(length($msg), 8, 'server negociation length with 99.1 + 99.1');
 is($server, undef, 'server instance with 99.1 + 99.1');
 
 
-if (!open($aout, '>', $box . 'output')) { die ($!); }
-if (!open($bin, '<', $box . 'output')) { die ($!); }
+if (!open($aout, '>', $box . '/output')) { die ($!); }
+if (!open($bin, '<', $box . '/output')) { die ($!); }
 printf($bout '99.1    ');
 close($bout);
 $server = Synctl::Ssh->server($ain, $aout, $controler);
