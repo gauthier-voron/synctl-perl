@@ -4,11 +4,27 @@ use strict;
 use warnings;
 
 use POSIX qw(getuid getgid);
-use Test::More tests => 168;
+use Test::More;
 
 use t::File;
 
 use Synctl;
+
+
+BEGIN {
+    my $fh;
+
+    open($fh, '>&', \*STDERR);
+    close(STDERR);
+
+    if (system('which', 'rsync') != 0) {
+	plan skip_all => 'rsync not installed';
+    } else {
+	plan tests => 168;
+    }
+
+    open(STDERR, '>&', $fh);
+}
 
 
 $ENV{PATH} = './script:' . $ENV{PATH};

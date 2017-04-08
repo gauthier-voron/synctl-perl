@@ -55,10 +55,17 @@ ok($seeker->filter(sub { ! m|^/dir| }), 'set filter (code)');
 is($seeker->seek(\@list), 5, 'seek to list with filter');
 
 
-$seeker = Synctl::Seeker->new('/root');
-is($seeker->seek(\@list, \@elist), 1, 'seek /root to list with error list');
-is(scalar(@elist), 1, 'seek /root to list gives 1 error');
+SKIP : {
+    skip 'running as root', 2 if ($> == 0);
 
+    mktdir($box . '/forbidden', MODE => 0700);
+    mktfile($box . '/forbidden/hidden', MODE => 0644, CONTENT => 'hidden');
+    chmod(0, $box . '/forbidden');
+    $seeker = Synctl::Seeker->new($box . '/forbidden');
+    is($seeker->seek(\@list, \@elist), 1,
+       'seek /forbidden to list with error list');
+    is(scalar(@elist), 1, 'seek /forbidden to list gives 1 error');
+}
 
 
 1;
