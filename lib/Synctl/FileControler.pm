@@ -97,21 +97,29 @@ sub __delete_ref_file
     }
 
     $deposit = $self->deposit();
-    $deposit->put($ref);
 
-    return 1;
+    if (!defined($deposit->put($ref))) {
+	return undef;
+    } else {
+	return 1;
+    }
 }
 
 sub __delete_ref_directory
 {
     my ($self, $snapshot, $name) = @_;
     my $sep = ($name eq '/') ? '' : '/';
-    my ($entries, $sum, $entry);
+    my ($entries, $sum, $tmp, $entry);
 
     $sum = 0;
     $entries = $snapshot->get_directory($name);
     foreach $entry (@$entries) {
-	$sum += $self->__delete_ref($snapshot, $name . $sep . $entry);
+	$tmp = $self->__delete_ref($snapshot, $name . $sep . $entry);
+	if (defined($tmp) && defined($sum)) {
+	    $sum += $tmp;
+	} else {
+	    $sum = undef;
+	}
     }
 
     return $sum;
@@ -142,39 +150,62 @@ sub __delete_ref
 sub __delete
 {
     my ($self, $path) = @_;
-    my ($dh, $entry);
+    my ($dh, $entry, $tmp, $ret);
 
     if (-d $path && !(-l $path)) {
 	if (!opendir($dh, $path)) {
-	    return 0;
+	    return throw(ESYS, $!, $path);
 	}
 
+	$ret = 1;
 	foreach $entry (grep { ! /^\.\.?$/ } readdir($dh)) {
-	    $self->__delete($path . '/' . $entry);
+	    $tmp = $self->__delete($path . '/' . $entry);
+	    if (!defined($tmp)) {
+		$ret = undef;
+	    }
 	}
 
 	closedir($dh);
-	if (!rmdir($path)) {
-	    return 0;
+	if (defined($ret) && !rmdir($path)) {
+	    return throw(ESYS, $!, $path, $!);
 	}
     } else {
 	if (!unlink($path)) {
-	    return 0;
+	    return throw(ESYS, $!, $path, $!);
 	}
     }
 
-    return 1;
+    return $ret;
 }
 
 sub _delete
 {
-    my ($self, $snapshot) = @_;
+    my ($self, $snapshot, @err) = @_;
+    my ($tmp, $ret);
+
+    if (!defined($snapshot)) {
+	return throw(ESYNTAX, undef);
+    } elsif (!blessed($snapshot) || !$snapshot->isa('Synctl::Snapshot')) {
+	return throw(EINVLD, $snapshot);
+    } elsif (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    $ret = 0;
 
     notify(INFO, IRDELET);
-    $self->__delete_ref($snapshot, '/');
+    $tmp = $self->__delete_ref($snapshot, '/');
+    if (!defined($tmp)) {
+	$ret = 1;
+    }
 
     notify(INFO, IFDELET, $snapshot->path());
-    return $self->__delete($snapshot->path());
+    $tmp = $self->__delete($snapshot->path());
+    if (!defined($tmp)) {
+	$ret = 1;
+    }
+
+    return $ret;
 }
 
 sub _fsck

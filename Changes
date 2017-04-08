@@ -1,5 +1,8 @@
 Revision history for Perl extension Synctl.
 
+1.0.3  2017-03-31
+       - Minor fixes
+
 1.0.2  2016-12-06
        - Upgrade of snapshot and deposit format :
          - format extensibility
