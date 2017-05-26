@@ -51,6 +51,8 @@ lib/Synctl/Ssh/1/1/Controler.pm
 lib/Synctl/Ssh/1/1/Deposit.pm
 lib/Synctl/Ssh/1/1/Server.pm
 lib/Synctl/Ssh/1/1/Snapshot.pm
+lib/Synctl/Util/Config.pm
+lib/Synctl/Util/Profile.pm
 lib/Synctl/Verbose.pm
 examples/full-ssh
 examples/home-local

@@ -7,6 +7,7 @@ use Getopt::Long qw(GetOptionsFromArray);
 use Text::ParseWords;
 
 use Synctl qw(:verbose);
+use Synctl::Util::Config;
 use Synctl::Profile;
 use Synctl::Verbose;
 
@@ -118,50 +119,58 @@ sub verbose
     Synctl::Configure(VERBOSE => $effect);
 }
 
+my %OPTIONS = (
+    #                  [ Action       Profile Server Client Snapshots ]
+    'C|directory=s' => [ sub { shift()->directory($_[1]) }, 0, 1, 1, 1 ],
+    's|server=s'    => [ sub { shift()->server($_[1]) },    1, 1, 0, 1 ],
+    'ssh-local=s'   => [ sub { shift()->sshlocal($_[1]) },  1, 1, 0, 1 ],
+    'ssh-remote=s'  => [ sub { shift()->sshremote($_[1]) }, 1, 1, 0, 1 ],
+    'c|client=s'    => [ sub { shift()->client($_[1]) },    1, 0, 1, 0 ],
+    'i|include=s'   => [ sub { shift()->include($_[1]) },   1, 0, 1, 0 ],
+    'e|exclude=s'   => [ sub { shift()->exclude($_[1]) },   1, 0, 1, 0 ],
+    'o|older=s'     => [ sub { shift()->older($_[1]) },     0, 0, 0, 1 ],
+    'n|newer=s'     => [ sub { shift()->newer($_[1]) },     0, 0, 0, 1 ],
+    'r|reverse'     => [ sub { shift()->reversed($_[1]) },  0, 0, 0, 1 ],
+    );
 
-sub find_profile
+sub build_options
 {
-    my ($profile_name) = @_;
-    my ($directory, $profile_path);
+    my ($config, $id) = @_;
+    my ($option, %options);
 
-    foreach $directory (@PROFILE_PATH) {
-	$profile_path = $directory . '/' . $profile_name;
-	if (-e $profile_path && -r $profile_path) {
-	    return $profile_path;
+    foreach $option (keys(%OPTIONS)) {
+	my $action;
+
+	if ($OPTIONS{$option}->[$id] == 0) {
+	    next;
 	}
+
+	if (!defined($action = $OPTIONS{$option}->[0])) {
+	    next;
+	}
+
+	$options{$option} = sub { $action->($config, @_) };
     }
 
-    return undef;
+    return %options;
 }
 
-sub make_profile
+sub build_profile_options  { return build_options(shift(), 1); }
+sub build_server_options   { return build_options(shift(), 2); }
+sub build_client_options   { return build_options(shift(), 3); }
+sub build_snapshot_options { return build_options(shift(), 4); }
+
+sub use_profile
 {
-    my ($profile_name, @profile_paths) = @_;
-    my $profile = Synctl::Profile->new();
-    my $profile_path;
-    my $fh;
+    my ($pname, $config) = @_;
+    my ($profile);
 
-    if (@profile_paths) {
-	@PROFILE_PATH = @profile_paths;
+    if (!@{$config->directory()}) {
+	$config->directory(@PROFILE_PATH);
     }
 
-    if (defined($profile_name)) {
-	$profile_path = find_profile($profile_name);
-	if (!defined($profile_path)) {
-	    error("cannot find profile '$profile_name'");
-	} else {
-	    notify(DEBUG, ICONFIG, 'profile', $profile_path);
-	}
-
-	if (!open($fh, '<', $profile_path)) {
-	    error("cannot open profile '$profile_path' : $!");
-	} else {
-	    $profile->read($fh);
-	    close($fh);
-	}
-    }
-
-    return $profile;
+    $profile = $config->profile($pname);
+    $profile->parse(build_profile_options($config));
 }
 
 
@@ -353,11 +362,11 @@ EOF
 
 sub list_main
 {
-    my ($profile_name, @err);
-    my (@profile_paths, $older, $newer, $date, $invert, @contains, $reverse);
-    my ($server, $format, $sshlocal, $sshremote, %opts);
-    my ($profile, $ndate, $path, $text, $controler, @snapshots, $snapshot);
+    my ($pname, @err);
+    my ($invert, @contains, $format, $date);
+    my ($profile, @snapshots, $snapshot, $text, $path);
     my ($Y, $m, $d, $H, $M, $S, $u);
+    my $config = Synctl::Util::Config->new();
 
     $format = "%u  %Y-%m-%d-%H-%M-%S";
 
@@ -365,81 +374,37 @@ sub list_main
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
-	'C|directory=s' => \@profile_paths,
-	'o|older=s'     => \$older,
-	'n|newer=s'     => \$newer,
+	build_snapshot_options($config),
+	'c|contain=s'   => \@contains,
 	'd|date=s'      => \$date,
 	'i|invert'      => \$invert,
-	'c|contain=s'   => \@contains,
-	'r|reverse'     => \$reverse,
 	'f|format=s'    => \$format,
-	's|server=s'    => \$server,
-	'v|verbose:-1'  => \&verbose,
-	'ssh-local=s'   => \$sshlocal,
-	'ssh-remote=s'  => \$sshremote
+	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
 
-    ($profile_name, @err) = @_;
+    ($pname, @err) = @_;
 
     if (@err) {
 	error("unexpected argument '" . shift(@err) . "'");
+    } elsif (defined($pname)) {
+	use_profile($pname, $config);
     }
 
-    $profile = make_profile($profile_name, @profile_paths);
+    @snapshots = $config->snapshots();
 
-    if (!defined($server)) { $server = $profile->server(); }
-    if (!defined($server)) {
-	error("missing server location");
-    } else {
-	notify(DEBUG, ICONFIG, 'server', $server);
-    }
-
-    if (defined($older)) {
-	$ndate = $older;
-	if (length($ndate) < 19) {
-	    $ndate .= substr('9999-99-99-99-99-99', length($older));
-	}
-	if (!($ndate =~ /^\d{4}(-\d\d){5}$/)) {
-	    error("invalid older option: '$older'");
+    if (defined($date)) {
+	if (defined($invert)) {
+	    @snapshots = grep {    $_->date() =~ /$date/   } @snapshots;
+	} else {
+	    @snapshots = grep { !( $_->date() =~ /$date/ ) } @snapshots;
 	}
     }
-
-    if (defined($newer)) {
-	$ndate = $newer;
-	if (length($ndate) < 19) {
-	    $ndate .= substr('9999-99-99-99-99-99', length($newer));
-	}
-	if (!($ndate =~ /^\d{4}(-\d\d){5}$/)) {
-	    error("invalid newer option: '$newer'");
-	}
-    }
-
-    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
-    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
-
-    $controler = Synctl::controler($server, %opts);
-    @snapshots = $controler->snapshot();
-
-    @snapshots = grep {
-	if    (defined($older) && $_->date() ge $older)    { 0; }
-	elsif (defined($newer) && $_->date() le $newer)    { 0; }
-	elsif (defined($date) && $_->date() =~ /$date/
-	       && $invert)                                 { 0; }
-	elsif (defined($date) && !($_->date() =~ /$date/)
-	       && !$invert)                                { 0; }
-        else                                               { 1; }
-    } @snapshots;
 
     foreach $path (@contains) {
 	@snapshots = grep {
 	    defined($_->get_properties($path));
 	} @snapshots;
-    }
-
-    @snapshots = sort { $a->date() cmp $b->date() } @snapshots;
-    if (defined($reverse)) {
-	@snapshots = reverse(@snapshots);
     }
 
     foreach $snapshot (@snapshots) {
@@ -458,6 +423,8 @@ sub list_main
 	$text =~ s|(%%)*%u|$u|g;
 	printf("%s\n", $text);
     }
+
+    return 0;
 }
 
 
@@ -497,42 +464,30 @@ EOF
 
 sub fsck_main
 {
-    my ($profile_name, @err);
-    my (@profile_paths, $server);
-    my ($sshlocal, $sshremote, %opts);
-    my ($profile, $controler);
+    my ($pname, @err);
+    my ($controler, $profile);
+    my $config = Synctl::Util::Config->new();
+
+    $config->directory(@PROFILE_PATH);
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
-	'C|directory=s' => \@profile_paths,
-	's|server=s'    => \$server,
-	'v|verbose:-1'  => \&verbose,
-	'ssh-local=s'   => \$sshlocal,
-	'ssh-remote=s'  => \$sshremote
+	build_server_options($config),
+	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
 
-    ($profile_name, @err) = @_;
+    ($pname, @err) = @_;
 
     if (@err) {
 	error("unexpected argument '" . shift(@err) . "'");
+    } elsif (defined($pname)) {
+	use_profile($pname, $config);
     }
 
-    $profile = make_profile($profile_name, @profile_paths);
-
-    if (!defined($server)) { $server = $profile->server(); }
-    if (!defined($server)) {
-	error("missing server location");
-    } else {
-	notify(DEBUG, ICONFIG, 'server', $server);
-    }
-
-    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
-    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
-
-    $controler = Synctl::controler($server, %opts);
+    $controler = $config->controler();
     return $controler->fsck();
 }
 
@@ -599,60 +554,36 @@ EOF
 
 sub send_main
 {
-    my ($profile_name, @err);
-    my (@profile_paths, $client, $server, @filters);
-    my ($sshlocal, $sshremote, %opts);
-    my ($profile, $controler);
+    my ($pname, @err);
+    my ($controler, $seeker);
+    my $config = Synctl::Util::Config->new();
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
-	'C|directory=s' => \@profile_paths,
-	'c|client=s'    => \$client,
-	's|server=s'    => \$server,
-	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
-	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
+	build_client_options($config),
+	build_server_options($config),
 	'v|verbose:-1'  => \&verbose,
-	'ssh-local=s'   => \$sshlocal,
-	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
-    ($profile_name, @err) = @_;
+    ($pname, @err) = @_;
 
     if (@err) {
 	error("unexpected argument '" . shift(@err) . "'");
+    } elsif (defined($pname)) {
+	use_profile($pname, $config);
     }
-
-    $profile = make_profile($profile_name, @profile_paths);
-
-    if (!defined($server)) { $server = $profile->server(); }
-    if (!defined($server)) {
-	error("missing server location");
-    } else {
-	notify(DEBUG, ICONFIG, 'server', $server);
-    }
-
-    if (!defined($client)) { $client = $profile->client(); }
-    if (!defined($client)) {
-	error("missing client location");
-    } else {
-	notify(DEBUG, ICONFIG, 'client', $client);
-    }
-
-    $profile->filters([ @{$profile->filters()}, @filters ]);
 
     notify(DEBUG, ICONFIG, 'filters',
-	   '[' . join(', ', map { "'$_'" } @{$profile->filters()}) . ']');
+	   '[' . join(', ', map { "'$_'" } @{$config->filters()}) . ']');
 
-    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
-    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
-
-    $controler = Synctl::controler($server, %opts);
-    Synctl::send($client, $controler, $profile->filter());
-
-    return 0;
+    if (defined($config->send())) {
+	return 0;
+    } else {
+	return 1;
+    }
 }
 
 
@@ -721,83 +652,40 @@ EOF
 
 sub recv_main
 {
-    my ($profile_name, $snapshot_id, @err);
-    my (@profile_paths, $client, $server, @filters);
-    my ($sshlocal, $sshremote, %opts);
+    my ($pname, $id, @err);
     my ($profile, $controler, $ndate, $snapshot, @snapshots);
+    my $config = Synctl::Util::Config->new();
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
-	'C|directory=s' => \@profile_paths,
-	'c|client=s'    => \$client,
-	's|server=s'    => \$server,
-	'i|include=s'   => sub { push(@filters, '+' . $_[1]) },
-	'e|exclude=s'   => sub { push(@filters, '-' . $_[1]) },
+	build_client_options($config),
+	build_server_options($config),
 	'v|verbose:-1'  => \&verbose,
-	'ssh-local=s'   => \$sshlocal,
-	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
-    ($profile_name, $snapshot_id, @err) = @_;
+    ($pname, $id, @err) = @_;
 
     if (@err) {
 	error("unexpected argument '" . shift(@err) . "'");
+    } elsif (defined($pname) && $pname ne '') {
+	use_profile($pname, $config);
     }
-
-    $profile = make_profile($profile_name, @profile_paths);
-
-    if (!defined($server)) { $server = $profile->server(); }
-    if (!defined($server)) {
-	error("missing server location");
-    } else {
-	notify(DEBUG, ICONFIG, 'server', $server);
-    }
-
-    if (!defined($client)) { $client = $profile->client(); }
-    if (!defined($client)) {
-	error("missing client location");
-    } else {
-	notify(DEBUG, ICONFIG, 'client', $client);
-    }
-
-    $profile->filters([ @{$profile->filters()}, @filters ]);
 
     notify(DEBUG, ICONFIG, 'filters',
-	   '[' . join(', ', map { "'$_'" } @{$profile->filters()}) . ']');
+	   '[' . join(', ', map { "'$_'" } @{$config->filters()}) . ']');
 
-    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
-    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
-
-    $controler = Synctl::controler($server, %opts);
-    @snapshots = $controler->snapshot();
-    @snapshots = sort { $a->date() le $b->date() } @snapshots;
-
-    if (!@snapshots) {
-	error("no snapshot available");
+    if (defined($id)) {
+	$config->snapshotid($id);
     }
 
-    if (defined($snapshot_id)) {
-	@snapshots = grep { $_->id() =~ /^$snapshot_id/ } @snapshots;
-
-	if (scalar(@snapshots) == 0) {
-	    error("no snapshot matching '$snapshot_id'");
-	} elsif (scalar(@snapshots) > 1) {
-	    error("multiple snapshots matching '$snapshot_id'");
-	} else {
-	    $snapshot = shift(@snapshots);
-	}
+    if (defined($config->recv())) {
+	return 0;
     } else {
-	$snapshot = shift(@snapshots);
+	return 1;
     }
-
-    notify(DEBUG, ICONFIG, 'snapshot', $snapshot->date());
-
-    Synctl::recv($controler, $snapshot, $client, $profile->filter());
-
-    return 0;
 }
 
 
@@ -844,72 +732,44 @@ EOF
 
 sub rm_main
 {
-    my ($profile_name, @snapshot_ids);
-    my (@profile_paths, $server, $force, $sshlocal, $sshremote, %opts);
-    my ($profile, $controler, $id, @snapshots, %selection, $answer);
+    my ($pname, @ids);
+    my ($force);
+    my ($controler, $id, @snapshots, $answer);
+    my $config = Synctl::Util::Config->new();
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
-	'C|directory=s' => \@profile_paths,
+	build_server_options($config),
 	'f|force'       => \$force,
-	's|server=s'    => \$server,
 	'v|verbose:-1'  => \&verbose,
-	'ssh-local=s'   => \$sshlocal,
-	'ssh-remote=s'  => \$sshremote
 	);
     $SIG{__WARN__} = undef;
 
-    if (defined($server)) {
-	(@snapshot_ids) = @_;
-	$profile_name = '';
+    if (defined($config->server())) {
+	(@ids) = @_;
     } else {
-	($profile_name, @snapshot_ids) = @_;
+	($pname, @ids) = @_;
+	use_profile($pname);
     }
 
-    if (!@snapshot_ids) {
+    if (!@ids) {
 	error('missing snapshot operand');
-    }
-
-    $profile = make_profile($profile_name, @profile_paths);
-
-    if (!defined($server)) { $server = $profile->server(); }
-    if (!defined($server)) {
-	error('missing server location');
     } else {
-	notify(DEBUG, ICONFIG, 'server', $server);
+	$config->snapshotid(\@ids);
     }
 
-    if (defined($sshlocal))  { $opts{COMMAND}  = [ shellwords($sshlocal)  ]; }
-    if (defined($sshremote)) { $opts{RCOMMAND} = [ shellwords($sshremote) ]; }
-
-    $controler = Synctl::controler($server, %opts);
-    @snapshots = $controler->snapshot();
+    $controler = $config->controler();
+    @snapshots = $config->snapshots();
 
     if (!@snapshots) {
-	error('no snapshot available');
+	error('no matching snapshot');
     }
 
-    foreach $id (@snapshot_ids) {
-	foreach (@snapshots) {
-	    if ($_->id() =~ /^$id/) {
-		$selection{$_->id()} = $_;
-	    }
-	}
-    }
-
-    if (!%selection) {
-	error('no valid snapshot selected');
-    }
-
-    if ($force) {
-	foreach (sort { $a cmp $b } map { $_->date() } values(%selection)) {
-	    notify(DEBUG, ICONFIG, 'snapshot', $_);
-	}
-    } else {
+    if (!$force) {
 	printf("Following snapshots will be removed:\n");
-	foreach (sort { $a->date() cmp $b->date() } values(%selection)) {
+	foreach (@snapshots) {
 	    printf("  %s  %s\n", $_->id(), $_->date());
 	}
 	printf("Are you sure [y/N] ? ");
@@ -921,7 +781,11 @@ sub rm_main
 	}
     }
 
-    foreach (values(%selection)) {
+    foreach (@snapshots) {
+	notify(DEBUG, ICONFIG, 'snapshot', $_->id());
+    }
+
+    foreach (@snapshots) {
 	$controler->delete($_);
     }
 
@@ -990,6 +854,7 @@ sub version
 		   'synctl', $Synctl::VERSION,
 		   $Synctl::AUTHOR, $Synctl::MAILTO);
 }
+
 
 sub main
 {
