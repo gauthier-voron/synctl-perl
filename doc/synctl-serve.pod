@@ -1,0 +1,15 @@
+=head1 NAME
+
+synctl-serve - Start synctl in server mode
+
+=head1 SYNOPSIS
+
+I<synctl serve> <path>
+
+=head1 DESCRIPTION
+
+Start the program in server mode. This command is not intended to be used by
+human but instead serves as an ssh backend. The given path is the path of the
+local server.
+
+=cut

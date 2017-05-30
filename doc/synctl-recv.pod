@@ -1,0 +1,82 @@
+=head1 NAME
+
+synctl-recv - Restore the client from an existing snapshot
+
+=head1 SYNOPSIS
+
+I<synctl recv> [<options>...] [--client=<path> --server=<location> | <profile>]
+[<snapshot>>
+
+=head1 DESCRIPTION
+
+Receive a snapshot from a specified server to a client path. Both the client
+and the server are either specified by the profile or by the '--client' and
+'--server' options. The client is an absolute or relative path while the server
+is a location in the form <protocol>://<path>[:<remote-path>] where protocol
+is one of 'file' for a local server or 'ssh' for a remote server. If the
+protocol is 'file', than only the <path> may be specified.
+If both the client and server are specified by options, the profile may be
+omitted. If the snapshot is omitted, the newest snapshot of the server is used,
+otherwise it is a snapshot unique identifier.
+To omit the profile but specify the snapshot, the profile should be specified
+as the empty string.
+
+Some files may be excluded from the snapshot with the '--exclude' and
+'--include' options. Each of these options may be specified multiple times with
+a filter which can be either a glob path, starting by a '/' or a perl-regex.
+For each seeked file of the client, the filters are applied in-order and the
+first to match indicates if the file is included or excluded. If a directory is
+excluded, its sub-files are *not* checked and automatically excluded.
+
+The client path, server location or include/exclude filters may be specified
+both in the profile and with the options. For the client and server, the option
+have priority while include/exclude options are appended to the ones specified
+in the profile.
+
+=head1 OPTIONS
+
+=over
+
+=item -C <path>, --directory=<path>
+
+Change the search path for the profile file. This options may be specified many
+times to indicate many search directories. Several paths separated by ':' can
+be specified in a single option.
+
+=item -c <path>, --client=<path>
+
+Indicate the path of the client to send to the server as a new snapshot.
+
+=item -e <filter>, --exclude=<filter>
+
+Indicate the files matching the filter should be excluded of the snapshot.
+
+=item -i <filter>, --include=<filter>
+
+Indicate the files matching the filter should be included in the snapshot.
+
+=item -s <location>, --server=<location>
+
+Indicate the location of the server to list. A location has the form
+'(protocol)://(path)(path-extensions)'. If the protocol is 'file', it may be
+omitted.
+
+=item -v<level>, --verbose=<level>
+
+Change the verbosity level. If specified with an argument, defines the new
+level, from 0 (nothing) to 4 (debug). If specified without an argument,
+increment the level by 1. The default level is 2 (warning).
+
+=item --ssh-local=<command>
+
+Use the specified command on the local side when accessing an ssh server.
+Default is 'ssh'.
+
+=item --ssh-remote=<command>
+
+Use the specified command on the remote side when accessing an ssh server.
+Default is 'synctl serve'.
+
+=back
+
+=cut

@@ -1,0 +1,57 @@
+=head1 NAME
+
+synctl-rm - Remove on or more snapshots from the server
+
+=head1 SYNOPSIS
+
+I<synctl rm> [<options>...] [--server=<location> | <profile>] <snapshot>...
+
+=head1 DESCRIPTION
+
+Remove one or several snapshots from the specified server. The server can be
+specified either in the profile or with the '--server' option. In this last
+case, the profile may be omitted. The snapshots are prefixes of the expression
+'YYYY-mm-dd-HH-MM-SS-u{32}'.
+
+By default, ask confirmation before to remove any snapshot, unless the
+'--force' option is specified.
+
+=head1 OPTIONS
+
+=over
+
+=item -C <path>, --directory=<path>
+
+Change the search path for the profile file. This options may be specified many
+times to indicate many search directories. Several paths separated by ':' can
+be specified in a single option.
+
+=item -f, --force
+
+Avoid to ask confirmation before to remove the snapshots.
+
+=item -s <location>, --server=<location>
+
+Indicate the location of the server to list. A location has the form
+'(protocol)://(path)(path-extensions)'. If the protocol is 'file', it may be
+omitted.
+
+=item -v<level>, --verbose=<level>
+
+Change the verbosity level. If specified with an argument, defines the new
+level, from 0 (nothing) to 4 (debug). If specified without an argument,
+increment the level by 1. The default level is 2 (warning).
+
+=item --ssh-local=<command>
+
+Use the specified command on the local side when accessing an ssh server.
+Default is 'ssh'.
+
+=item --ssh-remote=<command>
+
+Use the specified command on the remote side when accessing an ssh server.
+Default is 'synctl serve'.
+
+=back
+
+=cut

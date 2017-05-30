@@ -1,0 +1,25 @@
+=head1 NAME
+
+synctl-help - Display help information about synctl
+
+=head1 SYNOPSIS
+
+I<synctl help> [--list | <command>]
+
+=head1 DESCRIPTION
+
+Print a help message for the given command indicating the possibles syntaxes
+and their effects. If no command is given, print the general help message of
+the program.
+
+=head1 OPTIONS
+
+=over
+
+=item -l, --list
+
+Print the exclusive list of the possible commands.
+
+=back
+
+=cut
