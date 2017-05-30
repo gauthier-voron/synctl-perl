@@ -116,6 +116,9 @@ sub verbose
 	$effect = DEBUG;
     }
 
+    if ($effect eq DEBUG) {
+	Synctl::Configure(ERROR => undef);
+    }
     Synctl::Configure(VERBOSE => $effect);
 }
 
@@ -131,6 +134,7 @@ my %OPTIONS = (
     'o|older=s'     => [ sub { shift()->older($_[1]) },     0, 0, 0, 1 ],
     'n|newer=s'     => [ sub { shift()->newer($_[1]) },     0, 0, 0, 1 ],
     'r|reverse'     => [ sub { shift()->reversed($_[1]) },  0, 0, 0, 1 ],
+    'v|verbose:-1'  => [ \&verbose,                         1, 1, 1, 1 ],
     );
 
 sub build_options
@@ -273,7 +277,6 @@ sub list_main
 	'd|date=s'      => \$date,
 	'i|invert'      => \$invert,
 	'f|format=s'    => \$format,
-	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
 
@@ -334,7 +337,6 @@ sub fsck_main
     GetOptionsFromArray(
 	\@_,
 	build_server_options($config),
-	'v|verbose:-1'  => \&verbose
 	);
     $SIG{__WARN__} = undef;
 
@@ -362,7 +364,6 @@ sub send_main
 	\@_,
 	build_client_options($config),
 	build_server_options($config),
-	'v|verbose:-1'  => \&verbose,
 	);
     $SIG{__WARN__} = undef;
 
@@ -396,7 +397,6 @@ sub recv_main
 	\@_,
 	build_client_options($config),
 	build_server_options($config),
-	'v|verbose:-1'  => \&verbose,
 	);
     $SIG{__WARN__} = undef;
 
@@ -435,7 +435,6 @@ sub rm_main
 	\@_,
 	build_server_options($config),
 	'f|force'       => \$force,
-	'v|verbose:-1'  => \&verbose,
 	);
     $SIG{__WARN__} = undef;
 
@@ -519,12 +518,6 @@ Options:
   -h, --help                  Print this help message and exit.
 
   -V, --version               Print the version information and exit.
-
-  -v, --verbose [<level>]     Change the verbosity level. If specified with an
-                              argument, defines the new level, from 0 (nothing)
-                              to 4 (debug). If specified without an argument,
-                              increment the level by 1. The default level is 2
-                              (warning).
 EOF
 }
 
@@ -551,7 +544,6 @@ sub main
 	\@_,
 	'h|help'       => sub { printf("%s", usage()); exit (0); },
 	'V|version'    => sub { printf("%s", version()); exit (0); },
-	'v|verbose:-1' => \&verbose
 	);
     $SIG{__WARN__} = undef;
 
