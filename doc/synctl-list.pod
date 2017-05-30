@@ -1,0 +1,100 @@
+=head1 NAME
+
+synctl-list - Print the server snapshots
+
+=head1 SYNOPSIS
+
+I<synctl list> [<options>...] [--server=<location> | <profile>]
+
+=head1 DESCRIPTION
+
+Print the snapshots of the specified server. The server is specified either by
+a profile containing the location of the server or with the '--server' option.
+If specified by profile, the search path for the profile file can be changed
+with the '--directory' option.
+
+Several filters can be applied to the filter list. The options '--older',
+'--newer' and '--date' filter the snapshots by their creation date while the
+'--contain' option allow to select only snapshots containing specific files.
+These filter options can be specified many times.
+
+The snapshots are listed by chronological order. This can be modified with the
+'--reverse' option to list snapshots newest first. The '--format' option allows
+to choose precisely what to print.
+
+=head1 OPTIONS
+
+=over
+
+=item -C <path>, --directory=<path>
+
+Change the search path for the profile file. This options may be specified many
+times to indicate many search directories. Several paths separated by ':' can
+be specified in a single option.
+
+=item -c <path>, --contain=<path>
+
+Only list the snapshots containing the specified file relative to the snapshot
+root.
+
+=item -d <regex>, --date=<regex>
+
+Only list the snapshots having a creation date matching the given perl-regex.
+
+=item -f <format>, --format=<format>
+
+Specify the print format, which is a printf-style string where the following
+replacements are made :
+
+    %Y    Year of the snapshot creation (0000 .. 1970 .. )
+    %m    Month of the snapshot creation (01 .. 12)
+    %d    Day of month of the snapshot creation (01 .. 31)
+    %H    Hour of the snapshot creation (00 .. 23)
+    %M    Minute of the snapshot creation (00 .. 59)
+    %S    Second of the snapshot creation (00 .. 59)
+    %u    Unique identifier of the snapshot (32 x 0..f)
+
+=item -i, --invert
+
+Change the behavior of the '--date' option to list only the snapshots having a
+creation date *not* matching the perl-regex.
+
+=item -n <date>, --newer=<date>
+
+Only list the snapshots newer than the specified date. A date is a prefix of
+a string like 'YYYY-mm-dd-HH-MM-SS'.
+
+=item -o <date>, --older=<date>
+
+Only list the snapshots older than the specified date. A date is a prefix of
+a string like 'YYYY-mm-dd-HH-MM-SS'.
+
+=item -r, --reverse
+
+Print the snapshots the newest first.
+
+=item -s <location>, --server=<location>
+
+Indicate the location of the server to list. A location has the form
+'(protocol)://(path)(path-extensions)'. If the protocol is 'file', it may be
+omitted.
+
+=item -v<level>, --verbose=<level>
+
+Change the verbosity level. If specified with an argument, defines the new
+level, from 0 (nothing) to 4 (debug). If specified without an argument,
+increment the level by 1. The default level is 2 (warning).
+
+=item --ssh-local=<command>
+
+Use the specified command on the local side when accessing an ssh server.
+Default is 'ssh'.
+
+=item --ssh-remote=<command>
+
+Use the specified command on the remote side when accessing an ssh server.
+Default is 'synctl serve'.
+
+=back
+
+=cut
