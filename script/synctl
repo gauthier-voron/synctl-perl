@@ -8,41 +8,45 @@ use Text::ParseWords;
 
 use Synctl qw(:verbose);
 use Synctl::Util::Config;
+use Synctl::Util::Status;
 use Synctl::Profile;
 use Synctl::Verbose;
 
 
 my %MAINS = (
-    'fsck'  => \&fsck_main,
-    'help'  => \&help_main,
-    'init'  => \&init_main,
-    'list'  => \&list_main,
-    'send'  => \&send_main,
-    'recv'  => \&recv_main,
-    'rm'    => \&rm_main,
-    'serve' => \&serve_main
+    'fsck'   => \&fsck_main,
+    'help'   => \&help_main,
+    'init'   => \&init_main,
+    'list'   => \&list_main,
+    'send'   => \&send_main,
+    'recv'   => \&recv_main,
+    'rm'     => \&rm_main,
+    'serve'  => \&serve_main,
+    'status' => \&status_main,
     );
 
 my %MANPAGES = (
-    'fsck'  => 'synctl-fsck',
-    'help'  => 'synctl-help',
-    'init'  => 'synctl-init',
-    'list'  => 'synctl-list',
-    'send'  => 'synctl-send',
-    'recv'  => 'synctl-recv',
-    'rm'    => 'synctl-rm',
-    'serve' => 'synctl-serve'
+    'fsck'   => 'synctl-fsck',
+    'help'   => 'synctl-help',
+    'init'   => 'synctl-init',
+    'list'   => 'synctl-list',
+    'send'   => 'synctl-send',
+    'recv'   => 'synctl-recv',
+    'rm'     => 'synctl-rm',
+    'serve'  => 'synctl-serve',
+    'status' => 'synctl-status',
     );
 
 my %INFOS = (
-    'fsck'  => 'verify and repair server content',
-    'help'  => 'obtain some help for a command',
-    'init'  => 'initialize a local server',
-    'list'  => 'list the snapshots of a given server',
-    'send'  => 'send files to create a new snapshot',
-    'recv'  => 'receive files from a given snapshot',
-    'rm'    => 'remove snapshots of a given server',
-    'serve' => 'serve ssh forwared requests'
+    'fsck'   => 'verify and repair server content',
+    'help'   => 'obtain some help for a command',
+    'init'   => 'initialize a local server',
+    'list'   => 'list the snapshots of a given server',
+    'send'   => 'send files to create a new snapshot',
+    'recv'   => 'receive files from a given snapshot',
+    'rm'     => 'remove snapshots of a given server',
+    'serve'  => 'serve ssh forwared requests',
+    'status' => 'display synchronization status of local files',
     );
 
 
@@ -498,6 +502,45 @@ sub serve_main
     return Synctl::serve($controler);
 }
 
+sub status_main
+{
+    my ($pname, $path, @err);
+    my ($seeker, %result, $entry);
+    my $config = Synctl::Util::Config->new();
+    my $status = Synctl::Util::Status->new();
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	build_client_options($config),
+	'p|porcelain' => sub { $status->porcelain(1); },
+	);
+    $SIG{__WARN__} = undef;
+
+    ($pname, $path, @err) = @_;
+
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    } elsif (defined($pname) && $pname) {
+	use_profile($pname, $config);
+    }
+
+    if (!defined($path)) {
+	$path = '.';
+    }
+
+    $seeker = $config->seeker();
+    if (!defined($seeker)) {
+	return 1;
+    }
+
+    if (defined($status->execute($seeker, $path))) {
+	return 0;
+    } else {
+	return 1;
+    }
+}
 
 sub usage
 {
