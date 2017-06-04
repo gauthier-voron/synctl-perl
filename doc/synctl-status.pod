@@ -1,0 +1,93 @@
+=head1 NAME
+
+synctl-status - Display synchronization status of local files
+
+=head1 SYNOPSIS
+
+I<synctl status> [<options>...] <profile> [<path>]
+
+=head1 DESCRIPTION
+
+Display how the local files would be handled in case of a send. For each file
+of the given path, indicates if it would be included or excluded from the
+snapshot. If the path operand is omitted, apply to the current directory.
+
+=head1 OPTIONS
+
+=over
+
+=item -C <path>, --directory=<path>
+
+Change the search path for the profile file. This options may be specified many
+times to indicate many search directories. Several paths separated by ':' can
+be specified in a single option.
+
+=item -c <path>, --client=<path>
+
+Indicate the path of the client to send to the server as a new snapshot.
+
+=item -e <filter>, --exclude=<filter>
+
+Indicate the files matching the filter should be excluded of the snapshot.
+
+=item -i <filter>, --include=<filter>
+
+Indicate the files matching the filter should be included in the snapshot.
+
+=item -p, --porcelain
+
+Use a fixed and safe for parsing output format.
+
+=item -v<level>, --verbose=<level>
+
+Change the verbosity level. If specified with an argument, defines the new
+level, from 0 (nothing) to 4 (debug). If specified without an argument,
+increment the level by 1. The default level is 2 (warning).
+
+=back
+
+=head1 OUTPUT
+
+Except when the B<--porcelain> option is specified, the output may change from
+a version to another and is intended for human eye only. To use the output for
+a script, please always use the porcelain format.
+
+=head2 Human Format
+
+This format is only used when the standard output is a terminal. In other
+cases, the format is set to porcelain. This behavior may change in future
+versions.
+
+Each file, with or without a leading dot, is displayed on a new line with a
+leading character either I<i> ,resp. I<e>, indicating the file would be
+included, resp. excluded, from a new snapshot.
+Additionally, the included files are printed in green while the excluded files
+are printed in red.
+
+=head2 Porcelain Format
+
+Each file, with or without a leading dot, is displayed on a new line. If the
+given path is a directory, each entry is relative to this directory. Otherwise
+the file name is the path, as given on the command line.
+The file name is prefixed by state blocks which are non space characters. The
+first state block is the status block. The first character of this status
+block may have (non exclusively) one of these values:
+
+=over
+
+=item B<i>
+
+The file would be included in a future snapshot
+
+=item B<e>
+
+The file would not be included in a future snapshot
+
+=back
+
+Each line of the output matches the following regex:
+B</^(\S)(\S*)( \S+)* (.*)$/> where the matched groups are: the first character
+of status block, the remaining characters of status block (future versions),
+the remaining state blocks (future version) and the file name.
+
+=cut

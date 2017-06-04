@@ -7,6 +7,7 @@ doc/synctl-recv.pod
 doc/synctl-rm.pod
 doc/synctl-send.pod
 doc/synctl-serve.pod
+doc/synctl-status.pod
 examples/full-ssh
 examples/home-local
 lib/Synctl.pm
