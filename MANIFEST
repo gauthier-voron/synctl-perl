@@ -65,3 +65,4 @@ t/Synctl.t
 t/synconvert.t
 t/synctl-recv.t
 t/synctl-send.t
+t/Util-Status.t
