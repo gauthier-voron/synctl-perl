@@ -535,7 +535,7 @@ sub status_main
 	return 1;
     }
 
-    if (defined($status->execute($seeker, $path))) {
+    if (defined($status->execute(\*STDOUT, $seeker, $path))) {
 	return 0;
     } else {
 	return 1;

@@ -12,6 +12,9 @@ use Synctl qw(:error);
 
 sub porcelain { return shift()->_rw('__porcelain', @_); }
 
+sub __tty     { return shift()->_rw('__tty',       @_); }
+sub __handler { return shift()->_rw('__handler',   @_); }
+
 
 sub _new
 {
@@ -188,32 +191,42 @@ sub __apply_seeker
 sub __display_porcelain
 {
     my ($self, $found) = @_;
-    my ($entry);
+    my ($entry, $handler, $buffer);
+
+    $handler = $self->__handler();
 
     foreach $entry (sort { $a cmp $b } keys(%$found)) {
+	$buffer = '';
+
 	if (defined($found->{$entry})) {
-	    printf("i");
+	    $buffer .= 'i';
 	} else {
-	    printf("e");
+	    $buffer .= 'e';
 	}
 
-	printf(" %s\n", $entry);
+	$buffer .= ' ' . $entry;
+	$handler->($buffer);
     }
 }
 
 sub __display_tty
 {
     my ($self, $found) = @_;
-    my ($entry);
+    my ($entry, $handler, $buffer);
+
+    $handler = $self->__handler();
 
     foreach $entry (sort { $a cmp $b } keys(%$found)) {
+	$buffer = '';
+
 	if (defined($found->{$entry})) {
-	    printf("\033[32mi");
+	    $buffer .= "\033[32mi";
 	} else {
-	    printf("\033[31me");
+	    $buffer .= "\033[31me";
 	}
 
-	printf(" %s\033[0m\n", $entry);
+	$buffer .= sprintf(" %s\033[0m", $entry);
+	$handler->($buffer);
     }
 }
 
@@ -221,7 +234,7 @@ sub __display
 {
     my ($self, $found) = @_;
 
-    if ((-t STDOUT) && !$self->porcelain()) {
+    if ($self->__tty() && !$self->porcelain()) {
 	$self->__display_tty($found);
     } else {
 	$self->__display_porcelain($found);
@@ -229,15 +242,47 @@ sub __display
 }
 
 
+sub __setup_handler
+{
+    my ($self, $output) = @_;
+    my ($tty, $handler);
+
+    $tty = 0;
+
+    if (ref($output) eq 'SCALAR') {
+	$$output = '';
+	$handler = sub { $$output .= shift() . "\n"; };
+    } elsif (ref($output) eq 'ARRAY') {
+	@$output = ();
+        $handler = sub { push(@$output, { @_ }) };
+    } elsif (ref($output) eq 'GLOB') {
+	if (-t $output) {
+	    $tty = 1;
+	}
+	$handler = sub { printf($output "%s\n", shift()); };
+    } elsif (ref($output) eq 'CODE') {
+        $handler = $output;
+    } else {
+	return throw(EINVLD, $output);
+    }
+
+    $self->__tty($tty);
+    $self->__handler($handler);
+
+    return 1;
+}
+
 sub execute
 {
-    my ($self, $seeker, $path, @err) = @_;
+    my ($self, $output, $seeker, $path, @err) = @_;
     my ($found);
 
     if (!defined($seeker)) {
 	return throw(ESYNTAX, undef);
     } elsif (!blessed($seeker) || !$seeker->isa('Synctl::Seeker')) {
 	return throw(EINVLD, $seeker);
+    } elsif (!defined($self->__setup_handler($output))) {
+	return undef;
     } elsif (@err) {
 	return throw(ESYNTAX, shift(@err));
     }

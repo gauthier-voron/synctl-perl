@@ -38,7 +38,8 @@ close(STDOUT);
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/client'), 1, 'status on root return');
+is($status->execute(\*STDOUT, $seeker, $box . '/client'), 1,
+   'status on root return');
 close(STDOUT);
 is($content, <<EOF, 'status on root print');
 i .
@@ -53,7 +54,7 @@ is(scalar(grep { ! /^\S\S*( \S+)* (\.|\.\.|dir0|file0|file1)$/ }
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/client/dir0'), 1,
+is($status->execute(\*STDOUT, $seeker, $box . '/client/dir0'), 1,
    'status on subdir return');
 close(STDOUT);
 is($content, <<EOF, 'status on subdir print');
@@ -65,7 +66,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/client/file0'), 1,
+is($status->execute(\*STDOUT, $seeker, $box . '/client/file0'), 1,
    'status on file return');
 close(STDOUT);
 is($content, <<"EOF", 'status on file print');
@@ -75,7 +76,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/clink'), 1,
+is($status->execute(\*STDOUT, $seeker, $box . '/clink'), 1,
    'status on root through link return');
 close(STDOUT);
 is($content, <<EOF, 'status on root through link print');
@@ -89,7 +90,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/dlink'), 1,
+is($status->execute(\*STDOUT, $seeker, $box . '/dlink'), 1,
    'status on subdir through link return');
 close(STDOUT);
 is($content, <<EOF, 'status on subdir through link print');
@@ -101,7 +102,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/client/fake'), undef,
+is($status->execute(\*STDOUT, $seeker, $box . '/client/fake'), undef,
    'status on fake return');
 close(STDOUT);
 is($error, 1, 'status on fake error');
@@ -109,7 +110,8 @@ is($error, 1, 'status on fake error');
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box), 1, 'status on parent dir return');
+is($status->execute(\*STDOUT, $seeker, $box), 1,
+   'status on parent dir return');
 close(STDOUT);
 is($content, <<EOF, 'status on parent dir print');
 e .
@@ -123,7 +125,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, $box . '/unrelated'), 1,
+is($status->execute(\*STDOUT, $seeker, $box . '/unrelated'), 1,
    'status on unrelated return');
 close(STDOUT);
 is($content, <<EOF, 'status on unrelated print');
@@ -137,7 +139,7 @@ chdir($box . '/client');
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, '.'), 1,
+is($status->execute(\*STDOUT, $seeker, '.'), 1,
    'status on root relative return');
 close(STDOUT);
 is($content, <<EOF, 'status on root relative print');
@@ -151,7 +153,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, 'dir0'), 1,
+is($status->execute(\*STDOUT, $seeker, 'dir0'), 1,
    'status on subdir relative return');
 close(STDOUT);
 is($content, <<EOF, 'status on subdir relative print');
@@ -163,7 +165,7 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute($seeker, 'dir0/file0'), 1,
+is($status->execute(\*STDOUT, $seeker, 'dir0/file0'), 1,
    'status on subfile relative return');
 close(STDOUT);
 is($content, <<EOF, 'status on subfile relative print');
