@@ -13,19 +13,42 @@ use Synctl::Sender;
 use Synctl::Util::Profile;
 
 
-sub server          { return shift()->_rw('__server',    @_); }
-sub sshlocal        { return shift()->_rw('__sshlocal',  @_); }
-sub sshremote       { return shift()->_rw('__sshremote', @_); }
-sub client          { return shift()->_rw('__client',    @_); }
-sub older           { return shift()->_rw('__older',     @_); }
-sub newer           { return shift()->_rw('__newer',     @_); }
-sub date            { return shift()->_rw('__date',      @_); }
-sub reversed        { return shift()->_rw('__reversed',  @_); }
-sub snapshotid      { return shift()->_rw('__snapshot',  @_); }
+sub __option
+{
+    my ($self, $name, $value) = @_;
+    my $count;
+
+    if (defined($value)) {
+	$count = $self->__setcount()->{$name};
+	if (!defined($count)) {
+	    $count = 0;
+	}
+
+	if ($count > 0) {
+	    $value = $self->__multiset()->($self->_rw($name), $value);
+	}
+
+	$self->__setcount()->{$name} = $count + 1;
+    }
+
+    return $self->_rw($name, $value);
+}
+
+sub server          { return shift()->__option('__server',    @_); }
+sub sshlocal        { return shift()->__option('__sshlocal',  @_); }
+sub sshremote       { return shift()->__option('__sshremote', @_); }
+sub client          { return shift()->__option('__client',    @_); }
+sub older           { return shift()->__option('__older',     @_); }
+sub newer           { return shift()->__option('__newer',     @_); }
+sub date            { return shift()->__option('__date',      @_); }
+sub reversed        { return shift()->__option('__reversed',  @_); }
+sub snapshotid      { return shift()->__option('__snapshot',  @_); }
 
 sub __directory     { return shift()->_rw('__directory', @_); }
 sub __filters       { return shift()->_rw('__filters',   @_); }
 sub __controler     { return shift()->_rw('__controler', @_); }
+sub __multiset      { return shift()->_rw('__multiset',  @_); }
+sub __setcount      { return shift()->_rw('__setcount',  @_); }
 
 
 sub _new
@@ -38,6 +61,11 @@ sub _new
 
     $self->__directory([]);
     $self->__filters([]);
+    $self->__setcount({});
+    $self->__multiset(sub {
+	my ($old, $new) = @_;
+	return $new;
+    });
 
     return $self;
 }
@@ -66,6 +94,24 @@ sub filters
     }
 
     return [ @{$self->__filters()} ];
+}
+
+sub multiset
+{
+    my ($self, $value, @err) = @_;
+
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    if (defined($value)) {
+	if (ref($value) ne 'CODE') {
+	    return throw(EINVLD, $value);
+	}
+	$self->__multiset($value);
+    }
+
+    return $self->__multiset();
 }
 
 
