@@ -508,12 +508,15 @@ sub status_main
     my ($seeker, %result, $entry);
     my $config = Synctl::Util::Config->new();
     my $status = Synctl::Util::Status->new();
+    my $color = 'auto';
 
     $SIG{__WARN__} = \&opterr;
     Getopt::Long::Configure('permute');
     GetOptionsFromArray(
 	\@_,
 	build_client_options($config),
+	'a|all'       => sub { $status->all(1); },
+	'color=s'     => \$color,
 	'p|porcelain' => sub { $status->porcelain(1); },
 	);
     $SIG{__WARN__} = undef;
@@ -533,6 +536,16 @@ sub status_main
     $seeker = $config->seeker();
     if (!defined($seeker)) {
 	return 1;
+    }
+
+    if (lc($color) eq 'always') {
+	$status->color(1);
+    } elsif (lc($color) eq 'never') {
+	$status->color(0);
+    } elsif (lc($color) eq 'auto') {
+	$status->color(-t STDOUT);
+    } else {
+	error("invalid color option: $color");
     }
 
     if (defined($status->execute(\*STDOUT, $seeker, $path))) {

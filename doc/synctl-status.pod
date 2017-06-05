@@ -16,6 +16,10 @@ snapshot. If the path operand is omitted, apply to the current directory.
 
 =over
 
+=item -a, --all
+
+Do not ignore entreies starting with .
+
 =item -C <path>, --directory=<path>
 
 Change the search path for the profile file. This options may be specified many
@@ -25,6 +29,13 @@ be specified in a single option.
 =item -c <path>, --client=<path>
 
 Indicate the path of the client to send to the server as a new snapshot.
+
+=item --color=<when>
+
+Print colorized output. If I<when> is set to I<always>, then colorize unless
+B<--porcelain> option is specified. If set to I<never>, then do not colorize.
+If set to I<auto>, then colorize only if B<--porcelain> is not specified and
+the output is a tty.
 
 =item -e <filter>, --exclude=<filter>
 
@@ -54,15 +65,9 @@ a script, please always use the porcelain format.
 
 =head2 Human Format
 
-This format is only used when the standard output is a terminal. In other
-cases, the format is set to porcelain. This behavior may change in future
-versions.
-
-Each file, with or without a leading dot, is displayed on a new line with a
-leading character either I<i> ,resp. I<e>, indicating the file would be
-included, resp. excluded, from a new snapshot.
-Additionally, the included files are printed in green while the excluded files
-are printed in red.
+Each file is displayed on a new line with a leading character either I<i>,
+resp. I<e>, indicating the file would be included, resp. excluded, from a new
+snapshot.
 
 =head2 Porcelain Format
 

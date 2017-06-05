@@ -10,9 +10,10 @@ use Scalar::Util qw(blessed);
 use Synctl qw(:error);
 
 
+sub all       { return shift()->_rw('__all',       @_); }
+sub color     { return shift()->_rw('__color',     @_); }
 sub porcelain { return shift()->_rw('__porcelain', @_); }
 
-sub __tty     { return shift()->_rw('__tty',       @_); }
 sub __handler { return shift()->_rw('__handler',   @_); }
 
 
@@ -23,6 +24,10 @@ sub _new
     if (@err) {
 	return throw(ESYNTAX, shift(@err));
     }
+
+    $self->all(0);
+    $self->color(0);
+    $self->porcelain(0);
 
     return $self;
 }
@@ -188,6 +193,42 @@ sub __apply_seeker
 }
 
 
+sub __display_human
+{
+    my ($self, $found) = @_;
+    my ($entry, $handler, $buffer);
+    my ($istatus, $estatus, $name);
+
+    $handler = $self->__handler();
+
+    if ($self->color()) {
+	$istatus = "\033[32mi";
+	$estatus = "\033[31me";
+	$name = " %s\033[0m";
+    } else {
+	$istatus = "i";
+	$estatus = "e";
+	$name = " %s";
+    }
+
+    foreach $entry (sort { $a cmp $b } keys(%$found)) {
+	if (!$self->all() && substr($entry, 0, 1) eq '.') {
+	    next;
+	}
+
+	$buffer = '';
+
+	if (defined($found->{$entry})) {
+	    $buffer .= sprintf($istatus);
+	} else {
+	    $buffer .= sprintf($estatus);
+	}
+
+	$buffer .= sprintf($name, $entry);
+	$handler->($buffer);
+    }
+}
+
 sub __display_porcelain
 {
     my ($self, $found) = @_;
@@ -209,35 +250,14 @@ sub __display_porcelain
     }
 }
 
-sub __display_tty
-{
-    my ($self, $found) = @_;
-    my ($entry, $handler, $buffer);
-
-    $handler = $self->__handler();
-
-    foreach $entry (sort { $a cmp $b } keys(%$found)) {
-	$buffer = '';
-
-	if (defined($found->{$entry})) {
-	    $buffer .= "\033[32mi";
-	} else {
-	    $buffer .= "\033[31me";
-	}
-
-	$buffer .= sprintf(" %s\033[0m", $entry);
-	$handler->($buffer);
-    }
-}
-
 sub __display
 {
     my ($self, $found) = @_;
 
-    if ($self->__tty() && !$self->porcelain()) {
-	$self->__display_tty($found);
-    } else {
+    if ($self->porcelain()) {
 	$self->__display_porcelain($found);
+    } else {
+	$self->__display_human($found);
     }
 }
 
@@ -245,9 +265,7 @@ sub __display
 sub __setup_handler
 {
     my ($self, $output) = @_;
-    my ($tty, $handler);
-
-    $tty = 0;
+    my ($handler);
 
     if (ref($output) eq 'SCALAR') {
 	$$output = '';
@@ -256,9 +274,6 @@ sub __setup_handler
 	@$output = ();
         $handler = sub { push(@$output, { @_ }) };
     } elsif (ref($output) eq 'GLOB') {
-	if (-t $output) {
-	    $tty = 1;
-	}
 	$handler = sub { printf($output "%s\n", shift()); };
     } elsif (ref($output) eq 'CODE') {
         $handler = $output;
@@ -266,7 +281,6 @@ sub __setup_handler
 	return throw(EINVLD, $output);
     }
 
-    $self->__tty($tty);
     $self->__handler($handler);
 
     return 1;
