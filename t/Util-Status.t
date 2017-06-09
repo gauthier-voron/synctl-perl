@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 26;
+use Test::More tests => 25;
 
 use t::File;
 
@@ -102,10 +102,9 @@ EOF
 $error = undef;
 $content = undef;
 open(STDOUT, '>', \$content) or die ("cannot open stdout: $!");
-is($status->execute(\*STDOUT, $seeker, $box . '/client/fake'), undef,
+is($status->execute(\*STDOUT, $seeker, $box . '/client/fake'), 1,
    'status on fake return');
 close(STDOUT);
-is($error, 1, 'status on fake error');
 
 $error = undef;
 $content = undef;

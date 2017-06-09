@@ -505,7 +505,7 @@ sub serve_main
 sub status_main
 {
     my ($pname, $path, @err);
-    my ($seeker, %result, $entry);
+    my ($seeker, %result, $entry, $remote, $snapshot, @snapshots);
     my $config = Synctl::Util::Config->new();
     my $status = Synctl::Util::Status->new();
     my $color = 'auto';
@@ -515,9 +515,13 @@ sub status_main
     GetOptionsFromArray(
 	\@_,
 	build_client_options($config),
+	build_server_options($config),
 	'a|all'       => sub { $status->all(1); },
 	'color=s'     => \$color,
 	'p|porcelain' => sub { $status->porcelain(1); },
+	'quick'       => sub { $status->checksum(0); },
+	'remote'      => \$remote,
+	'snapshot=s'  => sub { $remote = 1; $snapshot = $_[1]; },
 	);
     $SIG{__WARN__} = undef;
 
@@ -546,6 +550,23 @@ sub status_main
 	$status->color(-t STDOUT);
     } else {
 	error("invalid color option: $color");
+    }
+
+    if ($remote) {
+	if (defined($snapshot)) {
+	    $config->snapshotid($snapshot);
+	}
+
+	$config->reversed(1);
+	@snapshots = $config->snapshots();
+
+	if (defined($snapshot) && scalar(@snapshots) > 1) {
+	    error("more than one snapshot for id: $snapshot");
+	} elsif (scalar(@snapshots) == 0) {
+	    error("no matching snapshot");
+	}
+
+	$status->snapshot(shift(@snapshots));
     }
 
     if (defined($status->execute(\*STDOUT, $seeker, $path))) {
