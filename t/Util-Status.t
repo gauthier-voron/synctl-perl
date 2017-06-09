@@ -42,13 +42,13 @@ is($status->execute(\*STDOUT, $seeker, $box . '/client'), 1,
    'status on root return');
 close(STDOUT);
 is($content, <<EOF, 'status on root print');
-i .
-e ..
-i dir0
-i file0
-i file1
+i?? .
+e?? ..
+i?? dir0
+i?? file0
+i?? file1
 EOF
-is(scalar(grep { ! /^\S\S*( \S+)* (\.|\.\.|dir0|file0|file1)$/ }
+is(scalar(grep { ! /^\S{3}\S*( \S+)* (\.|\.\.|dir0|file0|file1)$/ }
 	  split("\n", $content)), 0, 'status compatibility');
 
 $error = undef;
@@ -58,9 +58,9 @@ is($status->execute(\*STDOUT, $seeker, $box . '/client/dir0'), 1,
    'status on subdir return');
 close(STDOUT);
 is($content, <<EOF, 'status on subdir print');
-i .
-i ..
-i file0
+i?? .
+i?? ..
+i?? file0
 EOF
 
 $error = undef;
@@ -70,7 +70,7 @@ is($status->execute(\*STDOUT, $seeker, $box . '/client/file0'), 1,
    'status on file return');
 close(STDOUT);
 is($content, <<"EOF", 'status on file print');
-i $box/client/file0
+i?? $box/client/file0
 EOF
 
 $error = undef;
@@ -80,11 +80,11 @@ is($status->execute(\*STDOUT, $seeker, $box . '/clink'), 1,
    'status on root through link return');
 close(STDOUT);
 is($content, <<EOF, 'status on root through link print');
-i .
-e ..
-i dir0
-i file0
-i file1
+i?? .
+e?? ..
+i?? dir0
+i?? file0
+i?? file1
 EOF
 
 $error = undef;
@@ -94,9 +94,9 @@ is($status->execute(\*STDOUT, $seeker, $box . '/dlink'), 1,
    'status on subdir through link return');
 close(STDOUT);
 is($content, <<EOF, 'status on subdir through link print');
-i .
-i ..
-i file0
+i?? .
+i?? ..
+i?? file0
 EOF
 
 $error = undef;
@@ -113,12 +113,12 @@ is($status->execute(\*STDOUT, $seeker, $box), 1,
    'status on parent dir return');
 close(STDOUT);
 is($content, <<EOF, 'status on parent dir print');
-e .
-e ..
-i client
-e clink
-e dlink
-e unrelated
+e?? .
+e?? ..
+i?? client
+e?? clink
+e?? dlink
+e?? unrelated
 EOF
 
 $error = undef;
@@ -128,8 +128,8 @@ is($status->execute(\*STDOUT, $seeker, $box . '/unrelated'), 1,
    'status on unrelated return');
 close(STDOUT);
 is($content, <<EOF, 'status on unrelated print');
-e .
-e ..
+e?? .
+e?? ..
 EOF
 
 $cwd = $ENV{PWD};
@@ -142,11 +142,11 @@ is($status->execute(\*STDOUT, $seeker, '.'), 1,
    'status on root relative return');
 close(STDOUT);
 is($content, <<EOF, 'status on root relative print');
-i .
-e ..
-i dir0
-i file0
-i file1
+i?? .
+e?? ..
+i?? dir0
+i?? file0
+i?? file1
 EOF
 
 $error = undef;
@@ -156,9 +156,9 @@ is($status->execute(\*STDOUT, $seeker, 'dir0'), 1,
    'status on subdir relative return');
 close(STDOUT);
 is($content, <<EOF, 'status on subdir relative print');
-i .
-i ..
-i file0
+i?? .
+i?? ..
+i?? file0
 EOF
 
 $error = undef;
@@ -168,7 +168,7 @@ is($status->execute(\*STDOUT, $seeker, 'dir0/file0'), 1,
    'status on subfile relative return');
 close(STDOUT);
 is($content, <<EOF, 'status on subfile relative print');
-i dir0/file0
+i?? dir0/file0
 EOF
 
 chdir($cwd);

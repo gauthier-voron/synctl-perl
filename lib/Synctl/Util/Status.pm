@@ -63,7 +63,7 @@ sub __colorize_status
 sub __display_status
 {
     my ($self, $cprop, $sprop) = @_;
-    my ($buffer, $inex, $psync, $csync);
+    my ($inex, $psync, $csync);
 
     if (defined($cprop->{INODE})) {
 	if ($cprop->{MODE}) {
@@ -101,12 +101,7 @@ sub __display_status
 	$csync = 'm';
     }
 
-    $buffer = $inex . $psync . $csync;
-    if ($self->color()) {
-	$buffer = __colorize_status($buffer);
-    }
-
-    return $buffer;
+    return $inex . $psync . $csync;
 }
 
 sub __colorize_entry
@@ -176,7 +171,13 @@ sub __display_human
 	$cprop = $cprops->{$entry};
 
 	$buffer = '';
-	$buffer .= $self->__display_status($cprop, $sprops->{$entry});
+
+	if ($self->color()) {
+	    $buffer .= __colorize_status
+		($self->__display_status($cprop, $sprops->{$entry}));
+	} else {
+	    $buffer .= $self->__display_status($cprop, $sprops->{$entry});
+	}
 
 	if ($self->color()) {
 	    $buffer .= ' ' . __colorize_entry($entry, $cprop, $path);
@@ -190,18 +191,15 @@ sub __display_human
 
 sub __display_porcelain
 {
-    my ($self, $handler, $cprops) = @_;
-    my ($entry, $buffer);
+    my ($self, $handler, $cprops, $sprops) = @_;
+    my ($entry, $buffer, $cprop, $sprop);
 
-    foreach $entry (sort { $a cmp $b } keys(%$cprops)) {
+    foreach $entry (sort { $a cmp $b } __merge_keys($cprops, $sprops)) {
 	$buffer = '';
+	$cprop = $cprops->{$entry};
+	$sprop = $sprops->{$entry};
 
-	if (defined($cprops->{$entry}->{MODE})) {
-	    $buffer .= 'i';
-	} else {
-	    $buffer .= 'e';
-	}
-
+	$buffer .= $self->__display_status($cprop, $sprop);
 	$buffer .= ' ' . $entry;
 	$handler->($buffer);
     }
@@ -212,7 +210,7 @@ sub __display
     my ($self, $handler, $cprops, $sprops, $path) = @_;
 
     if ($self->porcelain()) {
-	$self->__display_porcelain($handler, $cprops);
+	$self->__display_porcelain($handler, $cprops, $sprops);
     } else {
 	$self->__display_human($handler, $cprops, $sprops, $path);
     }
