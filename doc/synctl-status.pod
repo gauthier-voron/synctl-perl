@@ -1,0 +1,200 @@
+=head1 NAME
+
+synctl-status - Display synchronization status of local files
+
+=head1 SYNOPSIS
+
+I<synctl status> [<options>...] <profile> [<path>]
+
+=head1 DESCRIPTION
+
+Display how the local files would be handled in case of a send. For each file
+of the given path, indicates if it would be included or excluded from the
+snapshot. If the path operand is omitted, apply to the current directory. The
+files can also be compared to a snapshot in the server. In this case a summary
+of the difference is displayed.
+
+=head1 OPTIONS
+
+=over
+
+=item -a, --all
+
+Do not ignore entreies starting with .
+
+=item -C <path>, --directory=<path>
+
+Change the search path for the profile file. This options may be specified many
+times to indicate many search directories. Several paths separated by ':' can
+be specified in a single option.
+
+=item -c <path>, --client=<path>
+
+Indicate the path of the client to send to the server as a new snapshot.
+
+=item --color=<when>
+
+Print colorized output. If I<when> is set to I<always>, then colorize unless
+B<--porcelain> option is specified. If set to I<never>, then do not colorize.
+If set to I<auto>, then colorize only if B<--porcelain> is not specified and
+the output is a tty.
+
+=item -e <filter>, --exclude=<filter>
+
+Indicate the files matching the filter should be excluded of the snapshot.
+
+=item -i <filter>, --include=<filter>
+
+Indicate the files matching the filter should be included in the snapshot.
+
+=item -p, --porcelain
+
+Use a fixed and safe for parsing output format.
+
+=item --quick
+
+When the B<--remote> or B<--snapshot> option is used, do not compare checksums
+for file and symbolic links. This avoid to recompute checksums on the client
+side.
+
+=item --remote
+
+Compare files on the client side with files on the server side. If
+B<--snapshot> is not specified, compare with the latest snapshot.
+
+=item -s <location>, --server=<location>
+
+Indicate the location of the server to list. A location has the form
+'(protocol)://(path)(path-extensions)'. If the protocol is 'file', it may be
+omitted.
+
+=item --snapshot=<id>
+
+Indicates the id, or a prefix of the id, of the snapshot to use for a remote
+comparison. Implies B<--remote>.
+
+=item --ssh-local=<command>
+
+Use the specified command on the local side when accessing an ssh server.
+Default is 'ssh'.
+
+=item --ssh-remote=<command>
+
+Use the specified command on the remote side when accessing an ssh server.
+Default is 'synctl serve'.
+
+=item -v<level>, --verbose=<level>
+
+Change the verbosity level. If specified with an argument, defines the new
+level, from 0 (nothing) to 4 (debug). If specified without an argument,
+increment the level by 1. The default level is 2 (warning).
+
+=back
+
+=head1 OUTPUT
+
+Except when the B<--porcelain> option is specified, the output may change from
+a version to another and is intended for human eye only. To use the output for
+a script, please always use the porcelain format.
+
+=head2 Human Format
+
+The human format is very similar to the porcelain format with two exceptions.
+First, the files with a leading dot are only displayed if the B<--all> option
+is used.
+Then, the status block and file name may be colorized depending on what is
+specified with the B<--color> option.
+The status block color can be one of the following:
+
+=over
+
+=item green
+
+The file would be included in a snapshot. If a comparison is done with the
+server, the green color also indicates that the file is the same than in the
+compared snapshot.
+
+=item red
+
+The file exists but would not be included in a snapshot, either because it is
+not under the B<--client> subtree or because it is filtered out.
+
+=item gray
+
+The file does not exist on the client.
+
+=item yellow
+
+The file exists on the client and would be included but either its content
+differs from the server side's, or it does not exist in the snapshot.
+
+=item teal
+
+The file exists on the client and the server, but it has different properties,
+for instance different mode, mosification time or even inode.
+
+=back
+
+The file names are colorized using the content of the B<LS_COLORS> environment
+variable.
+The only recognized file types are directories, symbolic links and regular
+files.
+
+=head2 Porcelain Format
+
+Each file, with or without a leading dot, is displayed on a new line. If the
+given path is a directory, each entry is relative to this directory. Otherwise
+the file name is the path, as given on the command line.
+The file name is prefixed by state blocks which are non space characters. The
+first state block is the status block. The first character of this status
+block may have (non exclusively) one of these values:
+
+=over
+
+=item I<i>
+
+The file would be included in a future snapshot.
+
+=item I<e>
+
+The file would not be included in a future snapshot.
+
+=item I<->
+
+The file is only present on server side.
+
+=back
+
+The second and third characters of the status block indicates the properties
+and content status and may have (non exclusively) one of these values:
+
+=over
+
+=item I<?>
+
+No comparison with server side is done.
+
+=item I<->
+
+The properties/content of the file are the same on client and server side.
+
+=item I<m>
+
+The properties/content of the file are different on client and server side.
+
+=item I<*>
+
+The file is not present on server side.
+
+=item I<x>
+
+The file is present on server side but not on client side.
+
+=back
+
+Each line of the output matches the following regex:
+B</^(\S{3})(\S*)( \S+)* (.*)$/> where the matched groups are: the firsts
+characters of status block, the remaining characters of status block (future
+versions), the remaining state blocks (future version) and the file name.
+
+=cut

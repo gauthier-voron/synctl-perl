@@ -57,12 +57,6 @@ Indicate the location of the server to list. A location has the form
 '(protocol)://(path)(path-extensions)'. If the protocol is 'file', it may be
 omitted.
 
-=item -v<level>, --verbose=<level>
-
-Change the verbosity level. If specified with an argument, defines the new
-level, from 0 (nothing) to 4 (debug). If specified without an argument,
-increment the level by 1. The default level is 2 (warning).
-
 =item --ssh-local=<command>
 
 Use the specified command on the local side when accessing an ssh server.
@@ -72,6 +66,12 @@ Default is 'ssh'.
 
 Use the specified command on the remote side when accessing an ssh server.
 Default is 'synctl serve'.
+
+=item -v<level>, --verbose=<level>
+
+Change the verbosity level. If specified with an argument, defines the new
+level, from 0 (nothing) to 4 (debug). If specified without an argument,
+increment the level by 1. The default level is 2 (warning).
 
 =back
 

@@ -8,41 +8,45 @@ use Text::ParseWords;
 
 use Synctl qw(:verbose);
 use Synctl::Util::Config;
+use Synctl::Util::Status;
 use Synctl::Profile;
 use Synctl::Verbose;
 
 
 my %MAINS = (
-    'fsck'  => \&fsck_main,
-    'help'  => \&help_main,
-    'init'  => \&init_main,
-    'list'  => \&list_main,
-    'send'  => \&send_main,
-    'recv'  => \&recv_main,
-    'rm'    => \&rm_main,
-    'serve' => \&serve_main
+    'fsck'   => \&fsck_main,
+    'help'   => \&help_main,
+    'init'   => \&init_main,
+    'list'   => \&list_main,
+    'send'   => \&send_main,
+    'recv'   => \&recv_main,
+    'rm'     => \&rm_main,
+    'serve'  => \&serve_main,
+    'status' => \&status_main,
     );
 
 my %MANPAGES = (
-    'fsck'  => 'synctl-fsck',
-    'help'  => 'synctl-help',
-    'init'  => 'synctl-init',
-    'list'  => 'synctl-list',
-    'send'  => 'synctl-send',
-    'recv'  => 'synctl-recv',
-    'rm'    => 'synctl-rm',
-    'serve' => 'synctl-serve'
+    'fsck'   => 'synctl-fsck',
+    'help'   => 'synctl-help',
+    'init'   => 'synctl-init',
+    'list'   => 'synctl-list',
+    'send'   => 'synctl-send',
+    'recv'   => 'synctl-recv',
+    'rm'     => 'synctl-rm',
+    'serve'  => 'synctl-serve',
+    'status' => 'synctl-status',
     );
 
 my %INFOS = (
-    'fsck'  => 'verify and repair server content',
-    'help'  => 'obtain some help for a command',
-    'init'  => 'initialize a local server',
-    'list'  => 'list the snapshots of a given server',
-    'send'  => 'send files to create a new snapshot',
-    'recv'  => 'receive files from a given snapshot',
-    'rm'    => 'remove snapshots of a given server',
-    'serve' => 'serve ssh forwared requests'
+    'fsck'   => 'verify and repair server content',
+    'help'   => 'obtain some help for a command',
+    'init'   => 'initialize a local server',
+    'list'   => 'list the snapshots of a given server',
+    'send'   => 'send files to create a new snapshot',
+    'recv'   => 'receive files from a given snapshot',
+    'rm'     => 'remove snapshots of a given server',
+    'serve'  => 'serve ssh forwared requests',
+    'status' => 'display synchronization status of local files',
     );
 
 
@@ -506,6 +510,80 @@ sub serve_main
     return Synctl::serve($controler);
 }
 
+sub status_main
+{
+    my ($pname, $path, @err);
+    my ($seeker, %result, $entry, $remote, $snapshot, @snapshots);
+    my $config = Synctl::Util::Config->new();
+    my $status = Synctl::Util::Status->new();
+    my $color = 'auto';
+
+    $SIG{__WARN__} = \&opterr;
+    Getopt::Long::Configure('permute');
+    GetOptionsFromArray(
+	\@_,
+	build_client_options($config),
+	build_server_options($config),
+	'a|all'        => sub { $status->all(1); },
+	'color=s'      => \$color,
+	'p|porcelain'  => sub { $status->porcelain(1); },
+	'quick'        => sub { $status->checksum(0); },
+	'remote'       => \$remote,
+	'snapshot=s'   => sub { $remote = 1; $snapshot = $_[1]; },
+	'v|verbose:-1' => \&verbose,
+	);
+    $SIG{__WARN__} = undef;
+
+    ($pname, $path, @err) = @_;
+
+    if (@err) {
+	error("unexpected argument '" . shift(@err) . "'");
+    } elsif (defined($pname) && $pname) {
+	use_profile($pname, $config);
+    }
+
+    if (!defined($path)) {
+	$path = '.';
+    }
+
+    $seeker = $config->seeker();
+    if (!defined($seeker)) {
+	return 1;
+    }
+
+    if (lc($color) eq 'always') {
+	$status->color(1);
+    } elsif (lc($color) eq 'never') {
+	$status->color(0);
+    } elsif (lc($color) eq 'auto') {
+	$status->color(-t STDOUT);
+    } else {
+	error("invalid color option: $color");
+    }
+
+    if ($remote) {
+	if (defined($snapshot)) {
+	    $config->snapshotid($snapshot);
+	}
+
+	$config->reversed(1);
+	@snapshots = $config->snapshots();
+
+	if (defined($snapshot) && scalar(@snapshots) > 1) {
+	    error("more than one snapshot for id: $snapshot");
+	} elsif (scalar(@snapshots) == 0) {
+	    error("no matching snapshot");
+	}
+
+	$status->snapshot(shift(@snapshots));
+    }
+
+    if (defined($status->execute(\*STDOUT, $seeker, $path))) {
+	return 0;
+    } else {
+	return 1;
+    }
+}
 
 sub usage
 {
