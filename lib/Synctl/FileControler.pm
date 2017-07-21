@@ -214,7 +214,7 @@ sub _fsck
     my $fsck = Synctl::File::1::Fsck->new
 	($self->_deposit(), $self->_snapshot());
 
-    return $fsck->checkup();
+    return $fsck;
 }
 
 
