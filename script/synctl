@@ -362,6 +362,9 @@ sub fsck_main
     }
 
     $controler = $config->controler();
+    if (!($controler->can('fsck'))) {
+	error("invalid server for fsck '" . $config->server() . "'");
+    }
 
     $fsck = $controler->fsck();
     $fsck->partial($partial);

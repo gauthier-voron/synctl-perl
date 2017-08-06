@@ -217,6 +217,17 @@ sub _fsck
     return $fsck;
 }
 
+sub fsck
+{
+    my ($self, @err) = @_;
+
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    return $self->_fsck();
+}
+
 
 1;
 __END__
