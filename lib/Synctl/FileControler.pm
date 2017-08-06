@@ -214,7 +214,18 @@ sub _fsck
     my $fsck = Synctl::File::1::Fsck->new
 	($self->_deposit(), $self->_snapshot());
 
-    return $fsck->checkup();
+    return $fsck;
+}
+
+sub fsck
+{
+    my ($self, @err) = @_;
+
+    if (@err) {
+	return throw(ESYNTAX, shift(@err));
+    }
+
+    return $self->_fsck();
 }
 
 

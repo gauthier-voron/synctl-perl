@@ -28,7 +28,6 @@ sub _deposit  { confess('abstract method'); }
 sub _snapshot { confess('abstract method'); }
 sub _create   { confess('abstract method'); }
 sub _delete   { confess('abstract method'); }
-sub _fsck     { confess('abstract method'); }
 
 
 sub deposit
@@ -77,17 +76,6 @@ sub delete
     }
 
     return $self->_delete($snapshot);
-}
-
-sub fsck
-{
-    my ($self, @err) = @_;
-
-    if (@err) {
-	return throw(ESYNTAX, shift(@err));
-    }
-
-    return $self->_fsck();
 }
 
 

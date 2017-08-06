@@ -426,18 +426,6 @@ sub __delete
     }
 }
 
-sub __fsck
-{
-    my ($self, $rtag, $id) = @_;
-    my $controler = $self->__controler();
-    my $ret;
-
-    $ret = $controler->fsck();
-    if (defined($rtag)) {
-	$self->__connection()->send($rtag, undef, $ret);
-    }
-}
-
 
 sub __exit
 {
@@ -503,7 +491,6 @@ sub _serve
     $self->__hook('snapshot',                \&__snapshot);
     $self->__hook('create',                  \&__create);
     $self->__hook('delete',                  \&__delete);
-    $self->__hook('fsck',                    \&__fsck);
 
     $self->__hook('exit',                    \&__exit);
 

@@ -336,7 +336,8 @@ sub list_main
 sub fsck_main
 {
     my ($pname, @err);
-    my ($controler, $profile);
+    my ($partial, $reset) = (1, 0);
+    my ($controler, $profile, $fsck, $ret);
     my $config = Synctl::Util::Config->new();
 
     $config->directory(@PROFILE_PATH);
@@ -346,6 +347,9 @@ sub fsck_main
     GetOptionsFromArray(
 	\@_,
 	build_server_options($config),
+	'v|verbose:-1'  => \&verbose,
+	'no-partial'    => sub { $partial = 0; },
+	'reset-partial' => sub { $reset = 1; }
 	);
     $SIG{__WARN__} = undef;
 
@@ -358,7 +362,27 @@ sub fsck_main
     }
 
     $controler = $config->controler();
-    return $controler->fsck();
+    if (!($controler->can('fsck'))) {
+	error("invalid server for fsck '" . $config->server() . "'");
+    }
+
+    $fsck = $controler->fsck();
+    $fsck->partial($partial);
+    $fsck->reset($reset);
+
+    $SIG{INT} = sub {
+	printf(STDERR "%s: interrupting fsck ...\n", $PROGRAM);
+	printf(STDERR "This may take a few moments. Please wait.\n");
+	$fsck->interrupt();
+    };
+
+    $ret = $fsck->checkup();
+
+    if (defined($ret)) {
+	return $ret;
+    } else {
+	return 255;
+    }
 }
 
 sub send_main

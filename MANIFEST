@@ -18,6 +18,7 @@ lib/Synctl/FileControler.pm
 lib/Synctl/File/1/Deposit.pm
 lib/Synctl/File/1/Fsck.pm
 lib/Synctl/File/1/Snapshot.pm
+lib/Synctl/Fsck.pm
 lib/Synctl/Object.pm
 lib/Synctl/Profile.pm
 lib/Synctl/Receiver.pm
