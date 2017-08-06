@@ -461,7 +461,7 @@ sub rm_main
 {
     my ($pname, @ids);
     my ($force);
-    my ($controler, $id, @snapshots, $answer);
+    my ($controler, $id, $snapshot, @snapshots, $answer);
     my $config = Synctl::Util::Config->new();
 
     $SIG{__WARN__} = \&opterr;
@@ -496,8 +496,8 @@ sub rm_main
 
     if (!$force) {
 	printf("Following snapshots will be removed:\n");
-	foreach (@snapshots) {
-	    printf("  %s  %s\n", $_->id(), $_->date());
+	foreach $snapshot (@snapshots) {
+	    printf("  %s  %s\n", $snapshot->id(), $snapshot->date());
 	}
 	printf("Are you sure [y/N] ? ");
 	$| = 1;
@@ -508,12 +508,12 @@ sub rm_main
 	}
     }
 
-    foreach (@snapshots) {
-	notify(DEBUG, ICONFIG, 'snapshot', $_->id());
+    foreach $snapshot (@snapshots) {
+	notify(DEBUG, ICONFIG, 'snapshot', $snapshot->id());
     }
 
-    foreach (@snapshots) {
-	$controler->delete($_);
+    foreach $snapshot (@snapshots) {
+	$controler->delete($snapshot);
     }
 
     return 0;
